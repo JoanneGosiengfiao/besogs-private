@@ -60,25 +60,27 @@ export class ApiService {
 
     const id = this.global.tokenID;
 
-    const rawPayload = {
-      UserName: username,
-      Password: password,
-      AppName: 'BESOGS',
-      AppId: id,
-      Timestamp: Date.now(),
-      Nonce: uuid.v4() // Generate a unique nonce for each request
-    };
 
-    //console.log(rawPayload);
-
-
-    // 1. Fetch the public key
     return this.http.get(this.global.api + 'Metadata', option).pipe(
-      // Map the response to JSON (Legacy Http module style)
-      map(response => response.json()),
 
-      // 2. switchMap waits for the first request to finish, then allows you to return a new request
-      switchMap(keyResponse => {
+      map(response => response.json()),
+      switchMap(keyResponse => this.getPublicAPICurrentServerTime().pipe(
+        map(response => ({ keyResponse, serverTime: response.json() }))
+      )),
+
+      switchMap(({ keyResponse, serverTime }) => {
+        const rawPayload = {
+          UserName: username,
+          Password: password,
+          AppName: 'BESOGS',
+          AppId: id,
+          Timestamp: new Date(serverTime.data).getTime(),
+          Nonce: uuid.v4() // Generate a unique nonce for each request
+        };
+
+        if (isNaN(rawPayload.Timestamp)) {
+          throw new Error('Invalid server time');
+        }
 
         // Encrypt the payload
         const encryptor = new JSEncrypt();
