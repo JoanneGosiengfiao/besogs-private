@@ -15,10 +15,15 @@ export class SchedSetupComponent implements OnInit {
 
   storageKey = 'grade-schedule-v2';
 
+  // school years shown in the dropdown; only seedYear gets the mock data
+  schoolYears = ['2025-2026', '2026-2027', '2027-2028'];
+  seedYear = '2026-2027';
+  schoolYear = '2026-2027';
+
   departments = [
-    { id: 'ELEM', name: 'Elementary', range: 'P–6', label: 'Pre-School to Grade 6' },
-    { id: 'JHS', name: 'Junior High School', range: '7–10', label: 'Grades 7–10' },
-    { id: 'SHS', name: 'Senior High School', range: '11–12', label: 'Grades 11–12' }
+    { id: 'ELEM', name: 'Elementary', label: 'Pre-School to Grade 6' },
+    { id: 'JHS', name: 'Junior High School', label: 'Grades 7–10' },
+    { id: 'SHS', name: 'Senior High School', label: 'Grades 11–12' }
   ];
 
   days = [
@@ -32,31 +37,15 @@ export class SchedSetupComponent implements OnInit {
   // edit this list to match the strands your school offers
   strands = ['STEM', 'ABM', 'HUMSS', 'GAS', 'TVL', 'Arts and Design', 'Sports'];
 
-  // mock section choices per grade level (keyed by badge); each grade has its own list
-  // replace with your sections from the database
-  sectionChoices = {
-    'P': ['Rose'],
-    'K': ['Sampaguita', 'Rosal', 'Camia', 'Waling-Waling'],
-    '1': ['Gumamela', 'Ilang-Ilang', 'Dama de Noche', 'Santan'],
-    '2': ['Dahlia', 'Orchid', 'Lily', 'Tulip'],
-    '3': ['Mabini', 'Bonifacio', 'Rizal', 'Aguinaldo'],
-    '4': ['Luna', 'Silang', 'Jaena', 'Burgos'],
-    '5': ['Jacinto', 'Aquino', 'Lapu-Lapu', 'Soliman'],
-    '6': ['Del Pilar', 'Ponce', 'Tandang Sora', 'Dagohoy'],
-    '7': ['Narra', 'Molave', 'Acacia', 'Ipil'],
-    '8': ['Yakal', 'Mahogany', 'Dao', 'Tindalo'],
-    '9': ['Apitong', 'Kamagong', 'Bagtikan', 'Guijo'],
-    '10': ['Lauan', 'Banaba', 'Almaciga', 'Tanguile'],
-    '11': ['Set A', 'Set B', 'Set C', 'Set D', 'Set E'],
-    '12': ['Set A', 'Set B', 'Set C', 'Set D', 'Set E']
-  };
-
   grades: any[] = [];
   activeDept = 'ELEM';
 
   // which section / strand each grade card is showing, keyed by grade badge
   selected = {};
   selectedStrand = {};
+
+  // which day tab is open on each grade card, keyed by grade badge
+  dayIndex = {};
 
   // loader per grade card while switching section / strand
   loading = {};
@@ -72,1398 +61,227 @@ export class SchedSetupComponent implements OnInit {
   isBreak = false;
   error = '';
 
+  // sections chosen in the add / edit modal
+  applySections = [];
+
+  // day ids chosen in the add / edit modal
+  applyDays = [];
+
   ngOnInit() {
-    const saved = localStorage.getItem(this.storageKey);
+    this.loadYear();
+  }
+
+  // ---------- school year ----------
+  yearKey() {
+    return this.storageKey + '-' + this.schoolYear;
+  }
+
+  selectYear(year: string) {
+    this.schoolYear = year;
+    this.loadYear();
+  }
+
+  loadYear() {
+    this.selected = {};
+    this.selectedStrand = {};
+    this.dayIndex = {};
+    this.loading = {};
+
+    let saved = localStorage.getItem(this.yearKey());
+
+    // data saved before school years existed belongs to the seed year
+    if (!saved && this.schoolYear === this.seedYear) {
+      saved = localStorage.getItem(this.storageKey);
+    }
 
     if (saved) {
       this.grades = JSON.parse(saved);
       this.toSections();
+      this.saveToStorage();
       return;
     }
 
-    this.grades = [
+    if (this.schoolYear === this.seedYear) {
+      this.grades = this.defaultGrades();
+      this.saveToStorage();
+      return;
+    }
+
+    // no data for this school year; replace with your API call later
+    this.grades = [];
+  }
+
+  // ---------- mock data ----------
+  // [start, end, true] = break; Friday is empty everywhere
+  toBlocks(list: any[]) {
+    return list.map(r => ({ start: r[0], end: r[1], isBreak: !!r[2] }));
+  }
+
+  // same times Monday to Thursday
+  monThu(list: any[]) {
+    const blocks = this.toBlocks(list);
+    return this.makeDays(blocks, blocks, blocks, blocks, []);
+  }
+
+  // pattern a on Mon/Wed, pattern b on Tue/Thu
+  alternate(a: any[], b: any[]) {
+    const x = this.toBlocks(a);
+    const y = this.toBlocks(b);
+    return this.makeDays(x, y, x, y, []);
+  }
+
+  defaultGrades() {
+    const elemA = [
+      ['07:15', '08:15'], ['08:15', '08:45'], ['08:15', '08:45', true],
+      ['08:45', '09:45'], ['10:45', '11:45'], ['11:45', '12:45', true],
+      ['12:45', '13:45'], ['13:45', '14:45'], ['14:45', '15:45']
+    ];
+    const elemB = [
+      ['07:45', '08:45'], ['08:45', '09:15'], ['08:45', '09:15', true],
+      ['09:15', '10:15'], ['11:15', '12:15'], ['12:15', '13:15', true],
+      ['13:15', '14:15'], ['14:15', '15:15'], ['15:15', '16:15']
+    ];
+    const jhsA = elemA.concat([['15:45', '16:45']]);
+    const jhsB = elemB.concat([['16:15', '17:15']]);
+    const jhsC = [
+      ['08:15', '09:15'], ['09:15', '09:45'], ['09:15', '09:45', true],
+      ['09:45', '10:45'], ['11:45', '12:45'], ['12:45', '13:45', true],
+      ['13:45', '14:45'], ['14:45', '15:45'], ['15:45', '16:45'], ['16:45', '17:45']
+    ];
+    const upperA = [
+      ['07:15', '08:15'], ['08:15', '09:15'], ['09:15', '09:45', true],
+      ['09:45', '10:45'], ['10:45', '11:45'], ['11:45', '12:45', true],
+      ['12:45', '13:45'], ['13:45', '14:45'], ['14:45', '15:45'], ['15:45', '16:45']
+    ];
+    const upperB = [
+      ['07:45', '08:45'], ['08:45', '09:45'], ['09:45', '10:15', true],
+      ['10:15', '11:15'], ['11:15', '12:15'], ['12:15', '13:15', true],
+      ['13:15', '14:15'], ['14:15', '15:15'], ['15:15', '16:15'], ['16:15', '17:15']
+    ];
+
+    // Grade 11: long blocks on Mon/Wed, regular periods on Tue/Thu
+    const stemAlong = [['07:45', '09:15'], ['09:15', '10:45'], ['10:45', '12:15'], ['12:15', '13:45'], ['13:45', '15:15'], ['15:15', '16:45']];
+    const stemAshort = [['07:15', '08:15'], ['08:15', '09:15'], ['09:15', '09:45', true], ['09:45', '10:45'], ['10:45', '11:45'], ['13:15', '14:15'], ['15:15', '16:15']];
+    const stemBlong = [['08:15', '09:45'], ['09:45', '11:15'], ['11:15', '12:45'], ['12:45', '14:15'], ['14:15', '15:45'], ['15:45', '17:15']];
+    const stemBshort = [['07:45', '08:45'], ['08:45', '09:45'], ['09:45', '10:15', true], ['10:15', '11:15'], ['11:15', '12:15'], ['13:45', '14:45'], ['15:45', '16:45']];
+    const abmLong = [['08:00', '09:30'], ['09:30', '11:00'], ['11:00', '12:30'], ['12:30', '14:00'], ['14:00', '15:30'], ['15:30', '17:00']];
+    const abmShort = [['07:30', '08:30'], ['08:30', '09:30'], ['09:30', '10:00', true], ['10:00', '11:00'], ['11:00', '12:00'], ['13:30', '14:30'], ['15:30', '16:30']];
+    const humssLong = [['08:30', '10:00'], ['10:00', '11:30'], ['11:30', '13:00'], ['13:00', '14:30'], ['14:30', '16:00'], ['16:00', '17:30']];
+    const humssShort = [['08:00', '09:00'], ['09:00', '10:00'], ['10:00', '10:30', true], ['10:30', '11:30'], ['11:30', '12:30'], ['14:00', '15:00'], ['16:00', '17:00']];
+
+    // Grade 12: same times Monday to Thursday
+    const g12Stem = upperB;
+    const g12Abm = [
+      ['08:00', '09:00'], ['09:00', '10:00'], ['10:00', '10:30', true],
+      ['10:30', '11:30'], ['11:30', '12:30'], ['12:30', '13:30', true],
+      ['13:30', '14:30'], ['14:30', '15:30'], ['15:30', '16:30'], ['16:30', '17:30']
+    ];
+    const g12Humss = [
+      ['08:15', '09:15'], ['09:15', '10:15'], ['10:15', '10:45', true],
+      ['10:45', '11:45'], ['11:45', '12:45'], ['12:45', '13:45', true],
+      ['13:45', '14:45'], ['14:45', '15:45'], ['15:45', '16:45'], ['16:45', '17:45']
+    ];
+    const g12Tvl = [
+      ['08:30', '09:30'], ['09:30', '10:30'], ['10:30', '11:00', true],
+      ['11:00', '12:00'], ['12:00', '13:00'], ['13:00', '14:00', true],
+      ['14:00', '15:00'], ['15:00', '16:00'], ['16:00', '17:00'], ['17:00', '18:00']
+    ];
+
+    return [
       {
         badge: 'P', name: 'Pre-School', dept: 'ELEM', sections: [
           {
-            strand: '', name: 'Rose', blocks: {
-              MON:
-                [
-                  { start: '13:00', end: '13:50' }, { start: '13:50', end: '14:50' },
-                  { start: '14:50', end: '15:10', isBreak: true },
-                  { start: '15:10', end: '15:30' }, { start: '15:30', end: '15:50' }
-                ],
-              TUE:
-                [
-                  { start: '13:00', end: '13:50' }, { start: '13:50', end: '14:50' },
-                  { start: '14:50', end: '15:10', isBreak: true },
-                  { start: '15:10', end: '15:30' }, { start: '15:30', end: '15:50' }
-                ],
-              WED:
-                [
-                  { start: '13:00', end: '13:50' }, { start: '13:50', end: '14:50' },
-                  { start: '14:50', end: '15:10', isBreak: true },
-                  { start: '15:10', end: '15:30' }, { start: '15:30', end: '15:50' }
-                ],
-              THU:
-                [
-                  { start: '13:00', end: '13:50' }, { start: '13:50', end: '14:50' },
-                  { start: '14:50', end: '15:10', isBreak: true },
-                  { start: '15:10', end: '15:30' }, { start: '15:30', end: '15:50' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
+            strand: '', name: 'Rose', blocks: this.monThu([
+              ['13:00', '13:50'], ['13:50', '14:50'], ['14:50', '15:10', true],
+              ['15:10', '15:30'], ['15:30', '15:50']
+            ])
+          }
         ]
       },
       {
         badge: 'K', name: 'Kindergarten', dept: 'ELEM', sections: [
-          {
-            strand: '', name: 'Sampaguita', blocks: {
-              MON:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              TUE:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              WED:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              THU:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: '', name: 'Rosal', blocks: {
-              MON:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              TUE:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              WED:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              THU:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          }
+          { strand: '', name: 'Sampaguita', blocks: this.monThu(elemA) },
+          { strand: '', name: 'Rosal', blocks: this.monThu(elemB) }
         ]
       },
       {
         badge: '1', name: 'Grade 1', dept: 'ELEM', sections: [
-          {
-            strand: '', name: 'Gumamela', blocks: {
-              MON:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              TUE:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              WED:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              THU:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: '', name: 'Ilang-Ilang', blocks: {
-              MON:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              TUE:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              WED:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              THU:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          }
+          { strand: '', name: 'Gumamela', blocks: this.monThu(elemA) },
+          { strand: '', name: 'Ilang-Ilang', blocks: this.monThu(elemB) }
         ]
       },
       {
         badge: '2', name: 'Grade 2', dept: 'ELEM', sections: [
-          {
-            strand: '', name: 'Dahlia', blocks: {
-              MON:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              TUE:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              WED:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              THU:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: '', name: 'Orchid', blocks: {
-              MON:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              TUE:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              WED:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              THU:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          }
+          { strand: '', name: 'Dahlia', blocks: this.monThu(elemA) },
+          { strand: '', name: 'Orchid', blocks: this.monThu(elemB) }
         ]
       },
       {
         badge: '3', name: 'Grade 3', dept: 'ELEM', sections: [
-          {
-            strand: '', name: 'Mabini', blocks: {
-              MON:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              TUE:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              WED:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              THU:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: '', name: 'Bonifacio', blocks: {
-              MON:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              TUE:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              WED:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              THU:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          }
+          { strand: '', name: 'Mabini', blocks: this.monThu(elemA) },
+          { strand: '', name: 'Bonifacio', blocks: this.monThu(elemB) }
         ]
       },
       {
         badge: '4', name: 'Grade 4', dept: 'ELEM', sections: [
-          {
-            strand: '', name: 'Luna', blocks: {
-              MON:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              TUE:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              WED:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              THU:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: '', name: 'Silang', blocks: {
-              MON:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              TUE:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              WED:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              THU:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          }
+          { strand: '', name: 'Luna', blocks: this.monThu(elemA) },
+          { strand: '', name: 'Silang', blocks: this.monThu(elemB) }
         ]
       },
       {
         badge: '5', name: 'Grade 5', dept: 'ELEM', sections: [
-          {
-            strand: '', name: 'Jacinto', blocks: {
-              MON:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              TUE:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              WED:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              THU:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: '', name: 'Aquino', blocks: {
-              MON:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              TUE:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              WED:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              THU:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          }
+          { strand: '', name: 'Jacinto', blocks: this.monThu(elemA) },
+          { strand: '', name: 'Aquino', blocks: this.monThu(elemB) }
         ]
       },
       {
         badge: '6', name: 'Grade 6', dept: 'ELEM', sections: [
-          {
-            strand: '', name: 'Del Pilar', blocks: {
-              MON:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              TUE:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              WED:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              THU:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: '', name: 'Ponce', blocks: {
-              MON:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              TUE:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              WED:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              THU:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          }
+          { strand: '', name: 'Del Pilar', blocks: this.monThu(elemA) },
+          { strand: '', name: 'Ponce', blocks: this.monThu(elemB) }
         ]
       },
       {
         badge: '7', name: 'Grade 7', dept: 'JHS', sections: [
-          {
-            strand: '', name: 'Narra', blocks: {
-              MON:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              TUE:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              WED:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              THU:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: '', name: 'Molave', blocks: {
-              MON:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              TUE:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              WED:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              THU:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: '', name: 'Acacia', blocks: {
-              MON:
-                [
-                  { start: '08:15', end: '09:15' }, { start: '09:15', end: '09:45' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '11:45', end: '12:45' },
-                  { start: '12:45', end: '13:45', isBreak: true },
-                  { start: '13:45', end: '14:45' }, { start: '14:45', end: '15:45' },
-                  { start: '15:45', end: '16:45' }, { start: '16:45', end: '17:45' }
-                ],
-              TUE:
-                [
-                  { start: '08:15', end: '09:15' }, { start: '09:15', end: '09:45' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '11:45', end: '12:45' },
-                  { start: '12:45', end: '13:45', isBreak: true },
-                  { start: '13:45', end: '14:45' }, { start: '14:45', end: '15:45' },
-                  { start: '15:45', end: '16:45' }, { start: '16:45', end: '17:45' }
-                ],
-              WED:
-                [
-                  { start: '08:15', end: '09:15' }, { start: '09:15', end: '09:45' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '11:45', end: '12:45' },
-                  { start: '12:45', end: '13:45', isBreak: true },
-                  { start: '13:45', end: '14:45' }, { start: '14:45', end: '15:45' },
-                  { start: '15:45', end: '16:45' }, { start: '16:45', end: '17:45' }
-                ],
-              THU:
-                [
-                  { start: '08:15', end: '09:15' }, { start: '09:15', end: '09:45' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '11:45', end: '12:45' },
-                  { start: '12:45', end: '13:45', isBreak: true },
-                  { start: '13:45', end: '14:45' }, { start: '14:45', end: '15:45' },
-                  { start: '15:45', end: '16:45' }, { start: '16:45', end: '17:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          }
+          { strand: '', name: 'Narra', blocks: this.monThu(jhsA) },
+          { strand: '', name: 'Molave', blocks: this.monThu(jhsB) },
+          { strand: '', name: 'Acacia', blocks: this.monThu(jhsC) }
         ]
       },
       {
         badge: '8', name: 'Grade 8', dept: 'JHS', sections: [
-          {
-            strand: '', name: 'Yakal', blocks: {
-              MON:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              TUE:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              WED:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              THU:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '08:45' },
-                  { start: '08:15', end: '08:45', isBreak: true },
-                  { start: '08:45', end: '09:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: '', name: 'Mahogany', blocks: {
-              MON:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              TUE:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              WED:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              THU:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:15' },
-                  { start: '08:45', end: '09:15', isBreak: true },
-                  { start: '09:15', end: '10:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          }
+          { strand: '', name: 'Yakal', blocks: this.monThu(jhsA) },
+          { strand: '', name: 'Mahogany', blocks: this.monThu(jhsB) }
         ]
       },
       {
         badge: '9', name: 'Grade 9', dept: 'JHS', sections: [
-          {
-            strand: '', name: 'Apitong', blocks: {
-              MON:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '09:15' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              TUE:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '09:15' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              WED:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '09:15' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              THU:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '09:15' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: '', name: 'Kamagong', blocks: {
-              MON:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              TUE:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              WED:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              THU:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          }
+          { strand: '', name: 'Apitong', blocks: this.monThu(upperA) },
+          { strand: '', name: 'Kamagong', blocks: this.monThu(upperB) }
         ]
       },
       {
         badge: '10', name: 'Grade 10', dept: 'JHS', sections: [
-          {
-            strand: '', name: 'Lauan', blocks: {
-              MON:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '09:15' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              TUE:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '09:15' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              WED:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '09:15' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              THU:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '09:15' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '10:45', end: '11:45' },
-                  { start: '11:45', end: '12:45', isBreak: true },
-                  { start: '12:45', end: '13:45' }, { start: '13:45', end: '14:45' },
-                  { start: '14:45', end: '15:45' }, { start: '15:45', end: '16:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: '', name: 'Banaba', blocks: {
-              MON:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              TUE:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              WED:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              THU:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          }
+          { strand: '', name: 'Lauan', blocks: this.monThu(upperA) },
+          { strand: '', name: 'Banaba', blocks: this.monThu(upperB) }
         ]
       },
       {
         badge: '11', name: 'Grade 11', dept: 'SHS', sections: [
-          {
-            strand: 'STEM', name: 'Set A', blocks: {
-              MON:
-                [
-                  { start: '07:45', end: '09:15' }, { start: '09:15', end: '10:45' },
-                  { start: '10:45', end: '12:15' }, { start: '12:15', end: '13:45' },
-                  { start: '13:45', end: '15:15' }, { start: '15:15', end: '16:45' }
-                ],
-              TUE:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '09:15' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '10:45', end: '11:45' },
-                  { start: '13:15', end: '14:15' }, { start: '15:15', end: '16:15' }
-                ],
-              WED:
-                [
-                  { start: '07:45', end: '09:15' }, { start: '09:15', end: '10:45' },
-                  { start: '10:45', end: '12:15' }, { start: '12:15', end: '13:45' },
-                  { start: '13:45', end: '15:15' }, { start: '15:15', end: '16:45' }
-                ],
-              THU:
-                [
-                  { start: '07:15', end: '08:15' }, { start: '08:15', end: '09:15' },
-                  { start: '09:15', end: '09:45', isBreak: true },
-                  { start: '09:45', end: '10:45' }, { start: '10:45', end: '11:45' },
-                  { start: '13:15', end: '14:15' }, { start: '15:15', end: '16:15' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: 'STEM', name: 'Set B', blocks: {
-              MON:
-                [
-                  { start: '08:15', end: '09:45' }, { start: '09:45', end: '11:15' },
-                  { start: '11:15', end: '12:45' }, { start: '12:45', end: '14:15' },
-                  { start: '14:15', end: '15:45' }, { start: '15:45', end: '17:15' }
-                ],
-              TUE:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '13:45', end: '14:45' }, { start: '15:45', end: '16:45' }
-                ],
-              WED:
-                [
-                  { start: '08:15', end: '09:45' }, { start: '09:45', end: '11:15' },
-                  { start: '11:15', end: '12:45' }, { start: '12:45', end: '14:15' },
-                  { start: '14:15', end: '15:45' }, { start: '15:45', end: '17:15' }
-                ],
-              THU:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '13:45', end: '14:45' }, { start: '15:45', end: '16:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: 'ABM', name: 'Set A', blocks: {
-              MON:
-                [
-                  { start: '08:00', end: '09:30' }, { start: '09:30', end: '11:00' },
-                  { start: '11:00', end: '12:30' }, { start: '12:30', end: '14:00' },
-                  { start: '14:00', end: '15:30' }, { start: '15:30', end: '17:00' }
-                ],
-              TUE:
-                [
-                  { start: '07:30', end: '08:30' }, { start: '08:30', end: '09:30' },
-                  { start: '09:30', end: '10:00', isBreak: true },
-                  { start: '10:00', end: '11:00' }, { start: '11:00', end: '12:00' },
-                  { start: '13:30', end: '14:30' }, { start: '15:30', end: '16:30' }
-                ],
-              WED:
-                [
-                  { start: '08:00', end: '09:30' }, { start: '09:30', end: '11:00' },
-                  { start: '11:00', end: '12:30' }, { start: '12:30', end: '14:00' },
-                  { start: '14:00', end: '15:30' }, { start: '15:30', end: '17:00' }
-                ],
-              THU:
-                [
-                  { start: '07:30', end: '08:30' }, { start: '08:30', end: '09:30' },
-                  { start: '09:30', end: '10:00', isBreak: true },
-                  { start: '10:00', end: '11:00' }, { start: '11:00', end: '12:00' },
-                  { start: '13:30', end: '14:30' }, { start: '15:30', end: '16:30' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: 'HUMSS', name: 'Set A', blocks: {
-              MON:
-                [
-                  { start: '08:30', end: '10:00' }, { start: '10:00', end: '11:30' },
-                  { start: '11:30', end: '13:00' }, { start: '13:00', end: '14:30' },
-                  { start: '14:30', end: '16:00' }, { start: '16:00', end: '17:30' }
-                ],
-              TUE:
-                [
-                  { start: '08:00', end: '09:00' }, { start: '09:00', end: '10:00' },
-                  { start: '10:00', end: '10:30', isBreak: true },
-                  { start: '10:30', end: '11:30' }, { start: '11:30', end: '12:30' },
-                  { start: '14:00', end: '15:00' }, { start: '16:00', end: '17:00' }
-                ],
-              WED:
-                [
-                  { start: '08:30', end: '10:00' }, { start: '10:00', end: '11:30' },
-                  { start: '11:30', end: '13:00' }, { start: '13:00', end: '14:30' },
-                  { start: '14:30', end: '16:00' }, { start: '16:00', end: '17:30' }
-                ],
-              THU:
-                [
-                  { start: '08:00', end: '09:00' }, { start: '09:00', end: '10:00' },
-                  { start: '10:00', end: '10:30', isBreak: true },
-                  { start: '10:30', end: '11:30' }, { start: '11:30', end: '12:30' },
-                  { start: '14:00', end: '15:00' }, { start: '16:00', end: '17:00' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          }
+          { strand: 'STEM', name: 'Set A', blocks: this.alternate(stemAlong, stemAshort) },
+          { strand: 'STEM', name: 'Set B', blocks: this.alternate(stemBlong, stemBshort) },
+          { strand: 'ABM', name: 'Set A', blocks: this.alternate(abmLong, abmShort) },
+          { strand: 'HUMSS', name: 'Set A', blocks: this.alternate(humssLong, humssShort) }
         ]
       },
       {
         badge: '12', name: 'Grade 12', dept: 'SHS', sections: [
-          {
-            strand: 'STEM', name: 'Set A', blocks: {
-              MON:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              TUE:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              WED:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              THU:
-                [
-                  { start: '07:45', end: '08:45' }, { start: '08:45', end: '09:45' },
-                  { start: '09:45', end: '10:15', isBreak: true },
-                  { start: '10:15', end: '11:15' }, { start: '11:15', end: '12:15' },
-                  { start: '12:15', end: '13:15', isBreak: true },
-                  { start: '13:15', end: '14:15' }, { start: '14:15', end: '15:15' },
-                  { start: '15:15', end: '16:15' }, { start: '16:15', end: '17:15' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: 'ABM', name: 'Set A', blocks: {
-              MON:
-                [
-                  { start: '08:00', end: '09:00' }, { start: '09:00', end: '10:00' },
-                  { start: '10:00', end: '10:30', isBreak: true },
-                  { start: '10:30', end: '11:30' }, { start: '11:30', end: '12:30' },
-                  { start: '12:30', end: '13:30', isBreak: true },
-                  { start: '13:30', end: '14:30' }, { start: '14:30', end: '15:30' },
-                  { start: '15:30', end: '16:30' }, { start: '16:30', end: '17:30' }
-                ],
-              TUE:
-                [
-                  { start: '08:00', end: '09:00' }, { start: '09:00', end: '10:00' },
-                  { start: '10:00', end: '10:30', isBreak: true },
-                  { start: '10:30', end: '11:30' }, { start: '11:30', end: '12:30' },
-                  { start: '12:30', end: '13:30', isBreak: true },
-                  { start: '13:30', end: '14:30' }, { start: '14:30', end: '15:30' },
-                  { start: '15:30', end: '16:30' }, { start: '16:30', end: '17:30' }
-                ],
-              WED:
-                [
-                  { start: '08:00', end: '09:00' }, { start: '09:00', end: '10:00' },
-                  { start: '10:00', end: '10:30', isBreak: true },
-                  { start: '10:30', end: '11:30' }, { start: '11:30', end: '12:30' },
-                  { start: '12:30', end: '13:30', isBreak: true },
-                  { start: '13:30', end: '14:30' }, { start: '14:30', end: '15:30' },
-                  { start: '15:30', end: '16:30' }, { start: '16:30', end: '17:30' }
-                ],
-              THU:
-                [
-                  { start: '08:00', end: '09:00' }, { start: '09:00', end: '10:00' },
-                  { start: '10:00', end: '10:30', isBreak: true },
-                  { start: '10:30', end: '11:30' }, { start: '11:30', end: '12:30' },
-                  { start: '12:30', end: '13:30', isBreak: true },
-                  { start: '13:30', end: '14:30' }, { start: '14:30', end: '15:30' },
-                  { start: '15:30', end: '16:30' }, { start: '16:30', end: '17:30' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: 'HUMSS', name: 'Set A', blocks: {
-              MON:
-                [
-                  { start: '08:15', end: '09:15' }, { start: '09:15', end: '10:15' },
-                  { start: '10:15', end: '10:45', isBreak: true },
-                  { start: '10:45', end: '11:45' }, { start: '11:45', end: '12:45' },
-                  { start: '12:45', end: '13:45', isBreak: true },
-                  { start: '13:45', end: '14:45' }, { start: '14:45', end: '15:45' },
-                  { start: '15:45', end: '16:45' }, { start: '16:45', end: '17:45' }
-                ],
-              TUE:
-                [
-                  { start: '08:15', end: '09:15' }, { start: '09:15', end: '10:15' },
-                  { start: '10:15', end: '10:45', isBreak: true },
-                  { start: '10:45', end: '11:45' }, { start: '11:45', end: '12:45' },
-                  { start: '12:45', end: '13:45', isBreak: true },
-                  { start: '13:45', end: '14:45' }, { start: '14:45', end: '15:45' },
-                  { start: '15:45', end: '16:45' }, { start: '16:45', end: '17:45' }
-                ],
-              WED:
-                [
-                  { start: '08:15', end: '09:15' }, { start: '09:15', end: '10:15' },
-                  { start: '10:15', end: '10:45', isBreak: true },
-                  { start: '10:45', end: '11:45' }, { start: '11:45', end: '12:45' },
-                  { start: '12:45', end: '13:45', isBreak: true },
-                  { start: '13:45', end: '14:45' }, { start: '14:45', end: '15:45' },
-                  { start: '15:45', end: '16:45' }, { start: '16:45', end: '17:45' }
-                ],
-              THU:
-                [
-                  { start: '08:15', end: '09:15' }, { start: '09:15', end: '10:15' },
-                  { start: '10:15', end: '10:45', isBreak: true },
-                  { start: '10:45', end: '11:45' }, { start: '11:45', end: '12:45' },
-                  { start: '12:45', end: '13:45', isBreak: true },
-                  { start: '13:45', end: '14:45' }, { start: '14:45', end: '15:45' },
-                  { start: '15:45', end: '16:45' }, { start: '16:45', end: '17:45' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          },
-          {
-            strand: 'TVL', name: 'Set A', blocks: {
-              MON:
-                [
-                  { start: '08:30', end: '09:30' }, { start: '09:30', end: '10:30' },
-                  { start: '10:30', end: '11:00', isBreak: true },
-                  { start: '11:00', end: '12:00' }, { start: '12:00', end: '13:00' },
-                  { start: '13:00', end: '14:00', isBreak: true },
-                  { start: '14:00', end: '15:00' }, { start: '15:00', end: '16:00' },
-                  { start: '16:00', end: '17:00' }, { start: '17:00', end: '18:00' }
-                ],
-              TUE:
-                [
-                  { start: '08:30', end: '09:30' }, { start: '09:30', end: '10:30' },
-                  { start: '10:30', end: '11:00', isBreak: true },
-                  { start: '11:00', end: '12:00' }, { start: '12:00', end: '13:00' },
-                  { start: '13:00', end: '14:00', isBreak: true },
-                  { start: '14:00', end: '15:00' }, { start: '15:00', end: '16:00' },
-                  { start: '16:00', end: '17:00' }, { start: '17:00', end: '18:00' }
-                ],
-              WED:
-                [
-                  { start: '08:30', end: '09:30' }, { start: '09:30', end: '10:30' },
-                  { start: '10:30', end: '11:00', isBreak: true },
-                  { start: '11:00', end: '12:00' }, { start: '12:00', end: '13:00' },
-                  { start: '13:00', end: '14:00', isBreak: true },
-                  { start: '14:00', end: '15:00' }, { start: '15:00', end: '16:00' },
-                  { start: '16:00', end: '17:00' }, { start: '17:00', end: '18:00' }
-                ],
-              THU:
-                [
-                  { start: '08:30', end: '09:30' }, { start: '09:30', end: '10:30' },
-                  { start: '10:30', end: '11:00', isBreak: true },
-                  { start: '11:00', end: '12:00' }, { start: '12:00', end: '13:00' },
-                  { start: '13:00', end: '14:00', isBreak: true },
-                  { start: '14:00', end: '15:00' }, { start: '15:00', end: '16:00' },
-                  { start: '16:00', end: '17:00' }, { start: '17:00', end: '18:00' }
-                ],
-              FRI:
-                [
-                ]
-            }
-          }
+          { strand: 'STEM', name: 'Set A', blocks: this.monThu(g12Stem) },
+          { strand: 'ABM', name: 'Set A', blocks: this.monThu(g12Abm) },
+          { strand: 'HUMSS', name: 'Set A', blocks: this.monThu(g12Humss) },
+          { strand: 'TVL', name: 'Set A', blocks: this.monThu(g12Tvl) }
         ]
       }
     ];
-    this.saveToStorage();
   }
 
   // converts old saved data (grade.blocks) into one section per grade, keeping its times
@@ -1507,24 +325,12 @@ export class SchedSetupComponent implements OnInit {
   }
 
   saveToStorage() {
-    localStorage.setItem(this.storageKey, JSON.stringify(this.grades));
+    localStorage.setItem(this.yearKey(), JSON.stringify(this.grades));
   }
 
   // ---------- display ----------
   gradesFor(dept: string) {
     return this.grades.filter(g => g.dept === dept);
-  }
-
-  sectionBlocks(section: any) {
-    return this.days.reduce((sum, d) => sum + section.blocks[d.id].length, 0);
-  }
-
-  totalBlocks(grade: any) {
-    return grade.sections.reduce((sum, s) => sum + this.sectionBlocks(s), 0);
-  }
-
-  setCount(dept: string) {
-    return this.gradesFor(dept).filter(g => this.totalBlocks(g) > 0).length;
   }
 
   activeDepartment() {
@@ -1540,15 +346,14 @@ export class SchedSetupComponent implements OnInit {
     return this.isShs(grade) ? 'Set' : 'Section';
   }
 
+  allLabel(grade: any) {
+    return this.isShs(grade) ? 'All sets' : 'All sections';
+  }
+
   sectionSummary(grade: any) {
     const count = grade.sections.length;
     const label = this.sectionLabel(grade).toLowerCase() + (count === 1 ? '' : 's');
     return count + ' ' + label;
-  }
-
-  sectionTitle(grade: any, section: any) {
-    if (!grade || !section) return '';
-    return this.isShs(grade) ? section.strand + ' ' + section.name : section.name;
   }
 
   dayName(id: string) {
@@ -1564,22 +369,6 @@ export class SchedSetupComponent implements OnInit {
   }
 
   // ---------- sections ----------
-  sectionOptions(grade: any) {
-    return this.sectionChoices[grade.badge] || [];
-  }
-
-  // a name is taken if another section of this grade already uses it
-  // (for SHS, only within the same strand: STEM Set A and ABM Set A can both exist)
-  isTaken(grade: any, section: any, name: string) {
-    return grade.sections.some(o =>
-      o !== section && o.name === name && (!this.isShs(grade) || o.strand === section.strand)
-    );
-  }
-
-  firstFreeName(grade: any, section: any) {
-    return this.sectionOptions(grade).find(n => !this.isTaken(grade, section, n));
-  }
-
   // SHS: strand shown in the strand dropdown (defaults to the first set's strand)
   shownStrand(grade: any) {
     if (this.selectedStrand[grade.badge]) return this.selectedStrand[grade.badge];
@@ -1588,6 +377,7 @@ export class SchedSetupComponent implements OnInit {
 
   // sections listed in the section dropdown (SHS: only the sets of the shown strand)
   visibleSections(grade: any) {
+    if (!grade) return [];
     if (!this.isShs(grade)) return grade.sections;
     const strand = this.shownStrand(grade);
     return grade.sections.filter(s => s.strand === strand);
@@ -1620,37 +410,6 @@ export class SchedSetupComponent implements OnInit {
     }, 500);
   }
 
-  addSection(grade: any) {
-    const section = {
-      strand: this.isShs(grade) ? this.shownStrand(grade) : '',
-      name: '',
-      blocks: this.makeWeek([])
-    };
-    const name = this.firstFreeName(grade, section);
-
-    if (!name) {
-      Swal.fire(
-        "",
-        "All " + (this.isShs(grade) ? section.strand + " sets" : "sections") + " are already added for " + grade.name,
-        "info"
-      );
-      return;
-    }
-
-    section.name = name;
-    grade.sections.push(section);
-    this.selectedStrand[grade.badge] = section.strand || null;
-    this.selected[grade.badge] = section;
-    this.saveToStorage();
-  }
-
-  removeSection(grade: any, section: any) {
-    if (!confirm('Remove ' + this.sectionTitle(grade, section) + ' and all its times?')) return;
-    grade.sections.splice(grade.sections.indexOf(section), 1);
-    this.selected[grade.badge] = null;
-    this.saveToStorage();
-  }
-
   // ---------- modal ----------
   openModalTime() {
     this.dialogRef = this.dialog.open(this.modalTime, {
@@ -1660,10 +419,19 @@ export class SchedSetupComponent implements OnInit {
     });
   }
 
+  // "Add time" in the grade head: uses the day tab that is currently open
+  addTime(grade: any) {
+    const section = this.currentSection(grade);
+    if (!section) return;
+    this.openAdd(grade, section, this.days[this.dayIndex[grade.badge] || 0].id);
+  }
+
   openAdd(grade: any, section: any, day: string) {
     this.activeGrade = grade;
     this.activeSection = section;
     this.activeDay = day;
+    this.applySections = [section];
+    this.applyDays = [day];
     this.editIndex = -1;
     this.start = '';
     this.end = '';
@@ -1676,6 +444,8 @@ export class SchedSetupComponent implements OnInit {
     this.activeGrade = grade;
     this.activeSection = section;
     this.activeDay = day;
+    this.applySections = [section];
+    this.applyDays = [day];
     this.editIndex = index;
     this.start = section.blocks[day][index].start;
     this.end = section.blocks[day][index].end;
@@ -1688,6 +458,53 @@ export class SchedSetupComponent implements OnInit {
     if (this.dialogRef) {
       this.dialogRef.close();
     }
+  }
+
+  // ---------- section picker ----------
+  hasSection(section: any) {
+    return this.applySections.indexOf(section) > -1;
+  }
+
+  toggleSection(section: any, checked: boolean) {
+    this.applySections = this.applySections.filter(s => s !== section);
+    if (checked) this.applySections.push(section);
+  }
+
+  allSectionsChecked() {
+    const list = this.visibleSections(this.activeGrade);
+    return list.length > 0 && list.every((s: any) => this.hasSection(s));
+  }
+
+  toggleAllSections(checked: boolean) {
+    this.applySections = checked ? this.visibleSections(this.activeGrade).slice() : [];
+  }
+
+  // chosen sections, in the order they are listed
+  targets() {
+    return this.visibleSections(this.activeGrade).filter((s: any) => this.hasSection(s));
+  }
+
+  // ---------- day picker ----------
+  hasDay(id: string) {
+    return this.applyDays.indexOf(id) > -1;
+  }
+
+  toggleDay(id: string, checked: boolean) {
+    this.applyDays = this.applyDays.filter(d => d !== id);
+    if (checked) this.applyDays.push(id);
+  }
+
+  allDaysChecked() {
+    return this.applyDays.length === this.days.length;
+  }
+
+  toggleAllDays(checked: boolean) {
+    this.applyDays = checked ? this.days.map(d => d.id) : [];
+  }
+
+  // true for the exact block being edited
+  isEditing(section: any, day: string, index: number) {
+    return this.editIndex !== -1 && section === this.activeSection && day === this.activeDay && index === this.editIndex;
   }
 
   // ---------- CRUD ----------
@@ -1708,26 +525,53 @@ export class SchedSetupComponent implements OnInit {
       );
       return;
     }
-
-    const blocks = this.activeSection.blocks[this.activeDay];
-    const taken = blocks.some((b: any, i: number) =>
-      i !== this.editIndex && this.start < b.end && b.start < this.end
-    );
-    if (taken) {
+    if (!this.applyDays.length) {
       Swal.fire(
         "",
-        "This time is already added or overlaps another time",
+        "Select at least one day",
+        "info"
+      );
+      return;
+    }
+    if (!this.targets().length) {
+      Swal.fire(
+        "",
+        "Select at least one " + this.sectionLabel(this.activeGrade).toLowerCase(),
         "info"
       );
       return;
     }
 
-    if (this.editIndex === -1) {
-      blocks.push({ start: this.start, end: this.end, isBreak: this.isBreak });
-    } else {
-      blocks[this.editIndex] = { start: this.start, end: this.end, isBreak: this.isBreak };
+    const targets = this.targets();
+    const taken = targets.some((sec: any) =>
+      this.applyDays.some((day: string) =>
+        sec.blocks[day].some((b: any, i: number) =>
+          !this.isEditing(sec, day, i) && this.start < b.end && b.start < this.end
+        )
+      )
+    );
+    if (taken) {
+      Swal.fire(
+        "",
+        "This time is already added or overlaps another time in the selected " + this.sectionLabel(this.activeGrade).toLowerCase() + " / day",
+        "info"
+      );
+      return;
     }
-    blocks.sort((a: any, b: any) => a.start.localeCompare(b.start));
+
+    targets.forEach((sec: any) => {
+      this.applyDays.forEach((day: string) => {
+        const blocks = sec.blocks[day];
+        const block = { start: this.start, end: this.end, isBreak: this.isBreak };
+
+        if (this.isEditing(sec, day, this.editIndex)) {
+          blocks[this.editIndex] = block;
+        } else {
+          blocks.push(block);
+        }
+        blocks.sort((a: any, b: any) => a.start.localeCompare(b.start));
+      });
+    });
 
     this.saveToStorage();
     this.closeModal();
@@ -1736,12 +580,6 @@ export class SchedSetupComponent implements OnInit {
   removeTime(section: any, day: string, index: number) {
     if (!confirm('Remove this time?')) return;
     section.blocks[day].splice(index, 1);
-    this.saveToStorage();
-  }
-
-  copyToAllDays(section: any, day: string) {
-    if (!confirm('Replace the other days of ' + section.name + ' with ' + this.dayName(day) + '\'s times?')) return;
-    section.blocks = this.makeWeek(section.blocks[day]);
     this.saveToStorage();
   }
 }

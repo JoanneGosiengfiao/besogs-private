@@ -1,0 +1,129 @@
+<mat-card class="example-card">
+    <mat-card-header>
+
+        <mat-card-title>
+            <p><b>Online Grading System</b></p>
+        </mat-card-title>
+        <mat-card-subtitle>
+            <p>
+                This page allows you to manage student grades.
+            </p>
+        </mat-card-subtitle>
+
+    </mat-card-header>
+
+    <mat-card-content class='colo'>
+
+        <div class="gu">
+    
+            <!-- step 1: school year, then term -->
+            <section class="gu-filters">
+                <div class="field">
+                    <label>School year</label>
+                    <mat-form-field appearance="outline">
+                        <mat-select placeholder="Select school year" aria-label="School year"
+                            [(ngModel)]="selectedSchoolYear" (ngModelChange)="onSchoolYearChange()">
+                            <mat-option *ngFor="let sy of schoolYears" [value]="sy">{{ sy }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+
+                <div class="field">
+                    <label>Term</label>
+                    <mat-form-field appearance="outline">
+                        <mat-select placeholder="Select term" aria-label="Term" [(ngModel)]="selectedTerm"
+                            (ngModelChange)="onTermChange()" [disabled]="!selectedSchoolYear">
+                            <mat-option *ngFor="let t of terms" [value]="t">{{ t }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+
+                <!-- step 2: section - subject -->
+                <div class="field field-wide">
+                    <label>Section - subject</label>
+                    <mat-form-field appearance="outline">
+                        <mat-select placeholder="Select section - subject" aria-label="Section - subject"
+                            [(ngModel)]="selectedClassId" (ngModelChange)="onClassChange()" [disabled]="!selectedTerm">
+                            <mat-option *ngFor="let c of getClasses()" [value]="c.id">{{ c.section }} - {{ c.subject
+                                }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+            </section>
+
+            <!-- empty state -->
+            <section class="gu-empty" *ngIf="!selectedClassId">
+                <p *ngIf="!selectedSchoolYear">Start by choosing a school year.</p>
+                <p *ngIf="selectedSchoolYear && !selectedTerm">Now choose the term.</p>
+                <p *ngIf="selectedTerm && !selectedClassId">Choose a section - subject to see its students.</p>
+            </section>
+
+            <!-- step 3: students and grades -->
+            <section class="gu-sheet" *ngIf="selectedClassId && getSelectedClass() as cls">
+                <div class="sheet-head">
+                    <div>
+                        <h2>{{ cls.section }} - {{ cls.subject }}</h2>
+                        <p class="meta">{{ cls.level }}, {{ selectedTerm }}, S.Y. {{ selectedSchoolYear }}</p>
+                    </div>
+                    <div class="summary">
+                        <span><strong>{{ rows.length }}</strong> students</span>
+                        <span><strong>{{ countByStatus('uploaded') }}</strong> uploaded</span>
+                        <span><strong>{{ countByStatus('pending') }}</strong> waiting</span>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="col-no">No.</th>
+                                <th>ID Number</th>
+                                <th>Name</th>
+                                <th>Gender</th>
+                                <th class="col-grade">Grade ({{ minGrade }}-{{ maxGrade }})</th>
+                                <th>Remarks</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let row of rows; let i = index" [class.row-error]="hasError(row)">
+                                <td class="col-no">{{ i + 1 }}</td>
+                                <td>{{ row.idNumber }}</td>
+                                <td>{{ row.name }}</td>
+                                <td>{{ row.gender }}</td>
+                                <td class="col-grade">
+                                    <input type="number" inputmode="numeric" [min]="minGrade" [max]="maxGrade"
+                                        [(ngModel)]="row.grade" (ngModelChange)="onGradeInput(row)"
+                                        [disabled]="isUploading" [attr.aria-label]="'Grade for ' + row.name"
+                                        [class.invalid]="hasError(row)" />
+                                    <span class="error-text" *ngIf="hasError(row)">Enter {{ minGrade }} to {{ maxGrade
+                                        }}</span>
+                                </td>
+                                <td>
+                                    <span class="remarks" [class.fail]="getRemarks(row) === 'Failed'">{{ getRemarks(row)
+                                        }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge" [class.badge-ok]="row.status === 'uploaded'">
+                                        {{ row.status === 'uploaded' ? 'Uploaded' : 'Waiting' }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="sheet-foot">
+                    <p class="feedback" *ngIf="message" role="status">{{ message }}</p>
+                    <p class="feedback feedback-error" *ngIf="countErrors() > 0" role="alert">
+                        Fix {{ countErrors() }} grade(s) outside {{ minGrade }}-{{ maxGrade }} before uploading.
+                    </p>
+                    <button type="button" class="btn" (click)="uploadAll()" [disabled]="!canUpload()">
+                        {{ isUploading ? 'Uploading...' : 'Upload ' + getUploadableRows().length + ' grade(s)' }}
+                    </button>
+                </div>
+            </section>
+        </div>
+
+    </mat-card-content>
+</mat-card>

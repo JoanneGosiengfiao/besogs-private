@@ -1,0 +1,286 @@
+::ng-deep .mat-card-header {
+    background-color: #294a70 !important;
+    padding: 0px 0px 0px 0px !important;
+    color: white;
+}
+
+::ng-deep .mat-card-header * {
+    color: white;
+}
+
+::ng-deep .mat-card {
+    padding: 0 !important;
+}
+
+::ng-deep .mat-card-content {
+    padding: 5px !important;
+}
+
+:host {
+    display: block;
+}
+
+.gu {
+    --ink: #1d2b30;
+    --muted: #5e6e74;
+    --line: #d3dbde;
+    --paper: #f4f6f7;
+    --card: #ffffff;
+    --accent: #0e5a5a;
+    --accent-dark: #0a4343;
+    --ok: #2b7a3d;
+    --bad: #b3261e;
+    width: 100%;
+    margin: 0;
+    padding: 0 0 32px;
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+.gu-head h1 {
+    margin: 0 0 4px;
+    font-size: 1.6rem;
+    font-weight: 650;
+}
+
+.gu-head p {
+    margin: 0 0 20px;
+    color: var(--muted);
+}
+
+/* filters */
+.gu-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.4fr;
+    gap: 14px;
+    padding: 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.field label {
+    font-size: .85rem;
+    font-weight: 600;
+}
+
+.field mat-form-field {
+    width: 100%;
+}
+
+.field ::ng-deep .mat-form-field-wrapper {
+    padding-bottom: 0;
+    margin: 0;
+}
+
+.field ::ng-deep .mat-form-field-infix {
+    padding: .5em 0;
+    border-top-width: .4em;
+}
+
+input:focus-visible,
+.btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+/* empty state */
+.gu-empty {
+    margin-top: 20px;
+    padding: 24px 16px;
+    text-align: left;
+    color: var(--muted);
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+}
+
+.gu-empty p {
+    margin: 0;
+}
+
+/* sheet */
+.gu-sheet {
+    margin-top: 20px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.sheet-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px;
+    border-bottom: 1px solid var(--line);
+}
+
+.sheet-head h2 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.meta {
+    margin: 2px 0 0;
+    color: var(--muted);
+    font-size: .9rem;
+}
+
+.summary {
+    display: flex;
+    gap: 18px;
+    color: var(--muted);
+    font-size: .9rem;
+}
+
+.summary strong {
+    color: var(--ink);
+    font-size: 1.05rem;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 640px;
+}
+
+th,
+td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+}
+
+th {
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--paper);
+}
+
+tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.col-no {
+    width: 52px;
+    color: var(--muted);
+}
+
+.col-grade {
+    width: 150px;
+}
+
+.lrn {
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+}
+
+.row-error {
+    background: #fdf3f2;
+}
+
+input[type=number] {
+    width: 90px;
+    height: 36px;
+    padding: 0 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: .95rem;
+    font-variant-numeric: tabular-nums;
+}
+
+input.invalid {
+    border-color: var(--bad);
+}
+
+.error-text {
+    display: block;
+    margin-top: 4px;
+    font-size: .78rem;
+    color: var(--bad);
+}
+
+.remarks {
+    font-weight: 600;
+    color: var(--ok);
+}
+
+.remarks.fail {
+    color: var(--bad);
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: .8rem;
+    background: var(--paper);
+    color: var(--muted);
+    border: 1px solid var(--line);
+}
+
+.badge-ok {
+    background: #e8f3ea;
+    color: var(--ok);
+    border-color: #bcd9c2;
+}
+
+.sheet-foot {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--line);
+}
+
+.feedback {
+    margin: 0 auto 0 0;
+    font-size: .9rem;
+    color: var(--ok);
+}
+
+.feedback-error {
+    color: var(--bad);
+}
+
+.btn {
+    height: 40px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
+    font-size: .95rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+    background: var(--accent-dark);
+}
+
+.btn:disabled {
+    background: #a9b8bb;
+    cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+    .gu-filters {
+        grid-template-columns: 1fr;
+    }
+}

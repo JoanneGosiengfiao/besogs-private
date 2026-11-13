@@ -80,13 +80,25 @@
             </a>
 
             <a [routerLink]="['../main',{outlets:{div:'sched-setup'}}]" mat-button>
-              <i class="material-icons iconsize">access_time</i> Time Slot Setup
+              <i class="material-icons iconsize">access_time</i> BES Schedule Setup
             </a>
 
           </mat-expansion-panel>
 
           <a [routerLink]="['../main',{outlets:{div:'faculty-loads-manager'}}]" mat-button>
             <i class="material-icons iconsize">assignment_ind</i> Faculty Loads Manager
+          </a>
+        </mat-expansion-panel>
+        
+        <mat-expansion-panel style="display:inline;padding: 0">
+          <mat-expansion-panel-header [collapsedHeight]="'36px'" [expandedHeight]="'36px'" style="padding-left: 7px;">
+            <mat-panel-title>
+              <i class="material-icons iconsize">calendar_today</i><b>BES Grading System</b>
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+
+          <a [routerLink]="['../main',{outlets:{div:'grading-system'}}]" mat-button>
+            <i class="material-icons iconsize">assignment_ind</i> Online Grading System
           </a>
         </mat-expansion-panel>
 
