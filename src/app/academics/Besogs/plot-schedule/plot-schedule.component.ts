@@ -39,6 +39,25 @@ export class PlotScheduleComponent implements OnDestroy {
   sectionId = SECTIONS[0].id;
   roomId = ROOMS[0].id;
   selectedSubject: ScheduleSubject = null;
+  showIncompletePlotting = false;
+
+  get visibleSubjects(): ScheduleSubject[] {
+    return this.showIncompletePlotting
+      ? this.subjects.filter(subject => this.plottedHours(subject) < subject.hours)
+      : this.subjects;
+  }
+
+  toggleIncompletePlotting(checked: boolean): void {
+    this.showIncompletePlotting = checked;
+    this.clearHiddenSubject();
+  }
+
+  private clearHiddenSubject(): void {
+    if (this.showIncompletePlotting && this.selectedSubject &&
+        this.plottedHours(this.selectedSubject) >= this.selectedSubject.hours) {
+      this.selectedSubject = null;
+    }
+  }
   assignments: ScheduleAssignment[] = ASSIGNMENTS.map(item => ({ ...item }));
   message = '';
   conflict: 'section' | 'teacher' | 'room' | null = null;
@@ -109,11 +128,13 @@ export class PlotScheduleComponent implements OnDestroy {
       const other = SECTIONS.find(item => item.id === (teacherConflict || roomConflict).sectionId);
       this.message = (teacherConflict ? this.selectedSubject.teacher : this.roomName(this.roomId)) +
         ' is already assigned to ' + other.level + ' – ' + other.name + ' at this time.';
+      this.showPlotWarning();
       return;
     }
     this.assignments = [...this.assignments, { yearId: this.yearId, sectionId: this.sectionId,
       subjectId: this.selectedSubject.id, teacherId: this.selectedSubject.teacherId, roomId: this.roomId, day, slotId }];
     this.message = this.selectedSubject.title + ' assigned on ' + day + '.';
+    this.clearHiddenSubject();
   }
   remove(assignment: ScheduleAssignment): void {
     this.assignments = this.assignments.filter(item => item !== assignment);

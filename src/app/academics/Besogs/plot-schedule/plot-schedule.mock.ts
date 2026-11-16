@@ -17,12 +17,12 @@ export const SECTIONS: ScheduleSection[] = [
   { id: 'lily-2025', yearId: '2025', name: 'Lily', level: 'Grade 7', adviser: 'Juan Dela Cruz' }
 ];
 const CATALOG = [
-  { code: 'ENG', title: 'English', teacherId: 'EMP-001', teacher: 'Maria Santos', hours: 5 },
-  { code: 'MATH', title: 'Mathematics', teacherId: 'EMP-002', teacher: 'Juan Dela Cruz', hours: 4 },
-  { code: 'SCI', title: 'Science', teacherId: 'EMP-004', teacher: 'Jose Garcia', hours: 4 },
-  { code: 'FIL', title: 'Filipino', teacherId: 'EMP-005', teacher: 'Patricia Mendoza', hours: 4 },
+  { code: 'ENG', title: 'English', teacherId: 'EMP-001', teacher: 'Maria Santos', hours: 4.5 },
+  { code: 'MATH', title: 'Mathematics', teacherId: 'EMP-002', teacher: 'Juan Dela Cruz', hours: 4.5 },
+  { code: 'SCI', title: 'Science', teacherId: 'EMP-004', teacher: 'Jose Garcia', hours: 4.5 },
+  { code: 'FIL', title: 'Filipino', teacherId: 'EMP-005', teacher: 'Patricia Mendoza', hours: 4.5 },
   { code: 'AP', title: 'Araling Panlipunan', teacherId: 'EMP-003', teacher: 'Ana Reyes', hours: 3 },
-  { code: 'MAPEH', title: 'Music, Arts, Physical Education and Health', teacherId: 'EMP-006', teacher: 'Mark Villanueva', hours: 4 }
+  { code: 'MAPEH', title: 'Music, Arts, Physical Education and Health', teacherId: 'EMP-006', teacher: 'Mark Villanueva', hours: 4.5 }
 ];
 export const SUBJECTS: ScheduleSubject[] = SECTIONS.filter(section => section.id !== 'jasmine')
   .reduce((all, section) => all.concat(CATALOG.map(subject => ({
