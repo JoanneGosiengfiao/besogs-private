@@ -47,6 +47,13 @@
                         [disabled]="loadingSection || sectionIndex >= sections.length - 1"
                         (click)="moveSection(1)"><mat-icon aria-hidden="true">chevron_right</mat-icon></button>
                 </div>
+                <div class="section-indicators" *ngIf="sections.length > 1" role="group"
+                    aria-label="Section navigation">
+                    <button *ngFor="let item of sections" type="button" class="section-indicator"
+                        [class.active]="item.id === sectionId" [attr.aria-pressed]="item.id === sectionId"
+                        [attr.aria-label]="'Go to ' + item.level + ' – ' + item.name"
+                        [disabled]="loadingSection" (click)="requestSection(item.id)"></button>
+                </div>
             </section>
 
         </div>

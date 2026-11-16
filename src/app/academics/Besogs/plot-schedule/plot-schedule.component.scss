@@ -846,6 +846,44 @@ label {
 }
 
 /* Section carousel. */
+.section-indicators {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.section-indicator {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+
+    &::after {
+        content: '';
+        display: block;
+        height: 4px;
+        border-radius: 999px;
+        background: #b9bec5;
+        transition: background-color 160ms ease;
+    }
+
+    &.active {
+        width: 40px;
+
+        &::after {
+            background: #4b535e;
+        }
+    }
+
+    &:hover:not(:disabled)::after {
+        background: #687482;
+    }
+}
+
 .selection-toolbar {
     min-height: 76px;
     grid-template-columns: minmax(240px, 1fr) minmax(0, 3fr);
