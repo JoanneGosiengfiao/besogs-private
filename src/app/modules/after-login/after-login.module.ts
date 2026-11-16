@@ -16,6 +16,9 @@ import { SectionDialogComponent } from '../../academics/Besogs/section-maintenan
 import { FacultyLoadsManagerComponent } from '../../academics/Besogs/faculty-loads-manager/faculty-loads-manager.component';
 import { AssignLoadsComponent } from '../../academics/Besogs/faculty-loads-manager/assign-loads/assign-loads.component';
 import { MyFacultyComponent } from '../../academics/Besogs/faculty-loads-manager/my-faculty/my-faculty.component';
+import { GradingSytemComponent } from '../../academics/Besogs/grading-sytem/grading-sytem.component';
+import { PlotScheduleComponent } from '../../academics/Besogs/plot-schedule/plot-schedule.component';
+
 
 @NgModule({
   imports: [
@@ -27,8 +30,8 @@ import { MyFacultyComponent } from '../../academics/Besogs/faculty-loads-manager
     ImageCropperModule,
     MatBadgeModule
   ],
-  declarations: [    
-    HomeComponent,    
+  declarations: [
+    HomeComponent,
     CustomNumberPipe,
     PopupComponent,
     Sub1Component,
@@ -37,7 +40,9 @@ import { MyFacultyComponent } from '../../academics/Besogs/faculty-loads-manager
     SectionDialogComponent,
     FacultyLoadsManagerComponent,
     AssignLoadsComponent,
-    MyFacultyComponent
+    MyFacultyComponent,
+    GradingSytemComponent,
+    PlotScheduleComponent
   ],
   entryComponents: [
     SectionDialogComponent
