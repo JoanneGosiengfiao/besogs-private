@@ -5,6 +5,7 @@ import { Sub1Component } from '../../academics/sub1/sub1.component';
 import { SchedSetupComponent } from '../../academics/Besogs/sched-setup/sched-setup.component';
 import { SectionMaintenanceComponent } from '../../academics/Besogs/section-maintenance/section-maintenance.component';
 import { FacultyLoadsManagerComponent } from '../../academics/Besogs/faculty-loads-manager/faculty-loads-manager.component';
+import { GradingSytemComponent } from '../../academics/Besogs/grading-sytem/grading-sytem.component';
 
 const routes: Routes = [
   { path: 'home', component: HomeComponent, outlet: 'div' },
@@ -12,7 +13,7 @@ const routes: Routes = [
   { path: 'sched-setup', component: SchedSetupComponent, outlet: 'div' },
   { path: 'section-maintenance', component: SectionMaintenanceComponent, outlet: 'div' },
   { path: 'faculty-loads-manager', component: FacultyLoadsManagerComponent, outlet: 'div' },
-
+  { path: 'grading-system', component: GradingSytemComponent, outlet: 'div' },
 ];
 
 @NgModule({

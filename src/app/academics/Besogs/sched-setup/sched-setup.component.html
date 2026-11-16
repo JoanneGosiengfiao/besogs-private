@@ -2,7 +2,7 @@
     <mat-card-header>
 
         <mat-card-title>
-            <p><b>Schedule Setup</b></p>
+            <p><b>BES Schedule Setup</b></p>
         </mat-card-title>
         <mat-card-subtitle>
             <p>
@@ -15,118 +15,133 @@
 
     <mat-card-content class='colo'>
 
-        <!-- Tabs -->
-        <nav class="tabs">
-            <button *ngFor="let d of departments" class="tab" [class.active]="d.id === activeDept"
-                (click)="activeDept = d.id">
-                <span class="tab-title">{{ d.name }}</span>
-            </button>
-        </nav>
+        <!-- School year -->
+        <mat-form-field appearance="outline" class="year-select">
+            <mat-label>School Year</mat-label>
+            <mat-select [ngModel]="schoolYear" (ngModelChange)="selectYear($event)">
+                <mat-option *ngFor="let sy of schoolYears" [value]="sy">{{ sy }}</mat-option>
+            </mat-select>
+        </mat-form-field>
 
-        <section class="content">
-            <div class="section-head">
-                <div>
-                    <h2>{{ activeDepartment()?.name }}</h2>
-                    <p class="faint">{{ activeDepartment()?.label }}</p>
-                </div>
-            </div>
+        <ng-container *ngIf="grades.length; else noData">
 
-            <!-- Grade cards -->
-            <div class="grade-card" *ngFor="let g of gradesFor(activeDept)">
-                <div class="grade-head">
-                    <div class="badge">{{ g.badge }}</div>
-                    <div class="grade-info">
-                        <strong>{{ g.name }}</strong>
-                        <small>{{ sectionSummary(g) }}</small>
+            <!-- Tabs -->
+            <nav class="tabs">
+                <button *ngFor="let d of departments" class="tab" [class.active]="d.id === activeDept"
+                    (click)="activeDept = d.id">
+                    <span class="tab-title">{{ d.name }}</span>
+                </button>
+            </nav>
+
+            <section class="content">
+                <div class="section-head">
+                    <div>
+                        <h2>{{ activeDepartment()?.name }}</h2>
+                        <p class="faint">{{ activeDepartment()?.label }}</p>
                     </div>
-                    <!-- <button class="add-btn" (click)="addSection(g)">
-                        + Add {{ isShs(g) ? shownStrand(g) + ' set' : 'section' }}
-                    </button> -->
                 </div>
 
-                <div class="grade-body">
-
-                    <!-- One card per grade: pick a section (or strand + set) to show its times -->
-                    <div class="sec-card">
-                        <div class="sec-head">
-                            <div class="sec-fields">
-                                <mat-form-field appearance="outline" class="sec-select" *ngIf="isShs(g)">
-                                    <mat-label>Strand</mat-label>
-                                    <mat-select [ngModel]="shownStrand(g)" (ngModelChange)="selectStrand(g, $event)">
-                                        <mat-option *ngFor="let st of strands" [value]="st">{{ st }}</mat-option>
-                                    </mat-select>
-                                </mat-form-field>
-                                <mat-form-field appearance="outline" class="sec-select"
-                                    *ngIf="visibleSections(g).length">
-                                    <mat-label>{{ sectionLabel(g) }}</mat-label>
-                                    <mat-select [ngModel]="currentSection(g)"
-                                        (ngModelChange)="selectSection(g, $event)">
-                                        <mat-option *ngFor="let sec of visibleSections(g)" [value]="sec">{{ sec.name
-                                            }}</mat-option>
-                                    </mat-select>
-                                </mat-form-field>
+                <!-- Grade cards -->
+                <mat-accordion multi="true">
+                <mat-expansion-panel class="grade-card" *ngFor="let g of gradesFor(activeDept)">
+                    <mat-expansion-panel-header class="grade-head">
+                        <mat-panel-title class="grade-title">
+                            <div class="badge">{{ g.badge }}</div>
+                            <div class="grade-info">
+                                <strong>{{ g.name }}</strong>
+                                <small>{{ sectionSummary(g) }}</small>
                             </div>
-                            <!-- <button class="link-btn danger" *ngIf="currentSection(g)"
-                                (click)="removeSection(g, currentSection(g))">
-                                Remove {{ sectionLabel(g) | lowercase }}
-                            </button> -->
-                        </div>
+                        </mat-panel-title>
+                        <button class="add-btn" *ngIf="!loading[g.badge] && currentSection(g)"
+                            (click)="$event.stopPropagation(); addTime(g)">+ Add time</button>
+                    </mat-expansion-panel-header>
 
-                        <!-- Loader while switching section -->
-                        <div class="sec-loading" *ngIf="loading[g.badge]">
-                            <mat-spinner diameter="32"></mat-spinner>
-                            <span>Loading {{ sectionLabel(g) | lowercase }} schedule…</span>
-                        </div>
+                    <div class="grade-body">
 
-                        <!-- Day tabs -->
-                        <mat-tab-group animationDuration="0ms" *ngIf="!loading[g.badge] && currentSection(g) as s">
-                            <mat-tab *ngFor="let d of days">
-
-                                <ng-template mat-tab-label>
-                                    {{ d.name }}
-                                </ng-template>
-
-                                <div class="day-body">
-                                    <div
-                                        style="width: 100%; display: flex; justify-content: flex-end;gap: 10px; margin-bottom: 10px; margin-top: 10px;">
-                                        <button class="add-btn" *ngIf="s.blocks[d.id].length"
-                                            (click)="copyToAllDays(s, d.id)">Copy to all days</button>
-                                        <button class="add-btn" (click)="openAdd(g, s, d.id)">+ Add time</button>
-                                    </div>
-                                    <div class="time-row" [class.break-row]="b.isBreak"
-                                        *ngFor="let b of s.blocks[d.id]; let i = index">
-                                        <span class="row-no"></span>
-                                        <div class="time-value">{{ formatTime(b.start) }}</div>
-                                        <span class="to">to</span>
-                                        <div class="time-value">{{ formatTime(b.end) }}</div>
-                                        <span class="break-tag" [class.is-break]="b.isBreak">{{ b.isBreak ? 'Break' :
-                                            'Class Period' }}</span>
-                                        <div class="row-actions">
-                                            <button class="link-btn" (click)="openEdit(g, s, d.id, i)">Edit</button>
-                                            <button class="link-btn danger"
-                                                (click)="removeTime(s, d.id, i)">Remove</button>
-                                        </div>
-                                    </div>
-
-                                    <p class="empty" *ngIf="!s.blocks[d.id].length">No time blocks for {{ d.name }} yet.
-                                    </p>
+                        <!-- One card per grade: pick a section (or strand + set) to show its times -->
+                        <div class="sec-card">
+                            <div class="sec-head">
+                                <div class="sec-fields">
+                                    <mat-form-field appearance="outline" class="sec-select" *ngIf="isShs(g)">
+                                        <mat-label>Strand</mat-label>
+                                        <mat-select [ngModel]="shownStrand(g)"
+                                            (ngModelChange)="selectStrand(g, $event)">
+                                            <mat-option *ngFor="let st of strands" [value]="st">{{ st }}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                    <mat-form-field appearance="outline" class="sec-select"
+                                        *ngIf="visibleSections(g).length">
+                                        <mat-label>{{ sectionLabel(g) }}</mat-label>
+                                        <mat-select [ngModel]="currentSection(g)"
+                                            (ngModelChange)="selectSection(g, $event)">
+                                            <mat-option *ngFor="let sec of visibleSections(g)" [value]="sec">{{
+                                                sec.name }}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
                                 </div>
+                            </div>
 
-                            </mat-tab>
-                        </mat-tab-group>
+                            <!-- Loader while switching section -->
+                            <div class="sec-loading" *ngIf="loading[g.badge]">
+                                <mat-spinner diameter="32"></mat-spinner>
+                                <span>Loading {{ sectionLabel(g) | lowercase }} schedule…</span>
+                            </div>
 
-                        <p class="empty" *ngIf="!loading[g.badge] && !currentSection(g)">
-                            No {{ isShs(g) ? shownStrand(g) + ' sets' : 'sections' }} yet. Add one to set its schedule.
-                        </p>
+                            <!-- Day tabs -->
+                            <mat-tab-group animationDuration="0ms" *ngIf="!loading[g.badge] && currentSection(g) as s"
+                                [selectedIndex]="dayIndex[g.badge] || 0"
+                                (selectedIndexChange)="dayIndex[g.badge] = $event">
+                                <mat-tab *ngFor="let d of days">
+
+                                    <ng-template mat-tab-label>
+                                        {{ d.name }}
+                                    </ng-template>
+
+                                    <div class="day-body">
+                                        <div class="time-row" [class.break-row]="b.isBreak"
+                                            *ngFor="let b of s.blocks[d.id]; let i = index">
+                                            <span class="row-no"></span>
+                                            <div class="time-value">{{ formatTime(b.start) }}</div>
+                                            <span class="to">to</span>
+                                            <div class="time-value">{{ formatTime(b.end) }}</div>
+                                            <span class="break-tag" [class.is-break]="b.isBreak">{{ b.isBreak ? 'Break'
+                                                : 'Class Period' }}</span>
+                                            <div class="row-actions">
+                                                <button class="link-btn" (click)="openEdit(g, s, d.id, i)">Edit</button>
+                                                <button class="link-btn danger"
+                                                    (click)="removeTime(s, d.id, i)">Remove</button>
+                                            </div>
+                                        </div>
+
+                                        <p class="empty" *ngIf="!s.blocks[d.id].length">No time blocks for {{ d.name }}
+                                            yet.
+                                        </p>
+                                    </div>
+
+                                </mat-tab>
+                            </mat-tab-group>
+
+                            <p class="empty" *ngIf="!loading[g.badge] && !currentSection(g)">
+                                No {{ isShs(g) ? shownStrand(g) + ' sets' : 'sections' }} yet.
+                            </p>
+                        </div>
                     </div>
-                </div>
-            </div>
-        </section>
+                </mat-expansion-panel>
+                </mat-accordion>
+            </section>
+
+        </ng-container>
+
+        <!-- No data for the selected school year -->
+        <ng-template #noData>
+            <p class="empty no-data">No data for school year {{ schoolYear }}.</p>
+        </ng-template>
+
     </mat-card-content>
 </mat-card>
 
 
-<!-- Modal -->
+<!-- Modal: add / edit time -->
 <ng-template #modalTime>
 
     <mat-card class="example-card">
@@ -136,7 +151,7 @@
                 <div style="flex: 0 0 80%;margin-left: -10px;">
                     <mat-card-title>
                         <p><b> {{ editIndex === -1 ? 'Add' : 'Edit' }} {{ dayName(activeDay) }} time of
-                                {{ activeGrade?.name }} {{ sectionTitle(activeGrade, activeSection) }} </b>
+                                {{ activeGrade?.name }} </b>
                         </p>
                     </mat-card-title>
                 </div>
@@ -173,6 +188,38 @@
                         <p style="margin: 4px 0 0; font-size: 12px; color: #6b7a6b;">
                             Breaks show in the list but are not counted as class periods.
                         </p>
+                    </div>
+
+                    <div style="margin-top: 14px; width: 100%;">
+                        <span style="font-size: 12px; font-weight: 600; color: #6b7a6b;">Apply to day</span>
+                        <div style="width: 100%; display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; margin-top: 4px;">
+                            <mat-checkbox color="primary" style="flex: 1;" title="Monday" [checked]="hasDay('MON')"
+                                (change)="toggleDay('MON', $event.checked)">M</mat-checkbox>
+                            <mat-checkbox color="primary" style="flex: 1;" title="Tuesday" [checked]="hasDay('TUE')"
+                                (change)="toggleDay('TUE', $event.checked)">T</mat-checkbox>
+                            <mat-checkbox color="primary" style="flex: 1;" title="Wednesday" [checked]="hasDay('WED')"
+                                (change)="toggleDay('WED', $event.checked)">W</mat-checkbox>
+                            <mat-checkbox color="primary" style="flex: 1;" title="Thursday" [checked]="hasDay('THU')"
+                                (change)="toggleDay('THU', $event.checked)">TH</mat-checkbox>
+                            <mat-checkbox color="primary" style="flex: 1;" title="Friday" [checked]="hasDay('FRI')"
+                                (change)="toggleDay('FRI', $event.checked)">F</mat-checkbox>
+                            <mat-checkbox color="primary" style="flex: 1.6;" [checked]="allDaysChecked()"
+                                (change)="toggleAllDays($event.checked)">All Day</mat-checkbox>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 14px;" *ngIf="visibleSections(activeGrade).length">
+                        <span style="font-size: 12px; font-weight: 600; color: #6b7a6b;">
+                            Apply to {{ sectionLabel(activeGrade) | lowercase }}
+                        </span>
+                        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;">
+                            <mat-checkbox color="primary" *ngFor="let sec of visibleSections(activeGrade)"
+                                [checked]="hasSection(sec)" (change)="toggleSection(sec, $event.checked)">
+                                {{ sec.name }}
+                            </mat-checkbox>
+                            <mat-checkbox color="primary" [checked]="allSectionsChecked()"
+                                (change)="toggleAllSections($event.checked)">{{ allLabel(activeGrade) }}</mat-checkbox>
+                        </div>
                     </div>
                 </div>
 

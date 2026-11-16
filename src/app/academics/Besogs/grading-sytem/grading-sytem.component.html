@@ -1,0 +1,172 @@
+<mat-card class="example-card">
+    <mat-card-header>
+
+        <mat-card-title>
+            <p><b>Online Grading System</b></p>
+        </mat-card-title>
+        <mat-card-subtitle>
+            <p>
+                This page allows you to manage student grades per section and subject.
+            </p>
+        </mat-card-subtitle>
+
+    </mat-card-header>
+
+    <mat-card-content class='colo'>
+
+        <div class="gu">
+
+            <!-- step 1: school year, then term -->
+            <section class="gu-filters">
+                <div class="field">
+                    <label>School year</label>
+                    <mat-form-field appearance="outline">
+                        <mat-select placeholder="Select school year" aria-label="School year"
+                            [(ngModel)]="selectedSchoolYear" (ngModelChange)="onSchoolYearChange()">
+                            <mat-option *ngFor="let sy of schoolYears" [value]="sy">{{ sy }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+
+                <div class="field">
+                    <label>Term</label>
+                    <mat-form-field appearance="outline">
+                        <mat-select placeholder="Select term" aria-label="Term" [(ngModel)]="selectedTerm"
+                            (ngModelChange)="onTermChange()" [disabled]="!selectedSchoolYear">
+                            <mat-option *ngFor="let t of terms" [value]="t">{{ t }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+
+                <!-- step 2: section - subject -->
+                <div class="field field-wide">
+                    <label>Section - subject</label>
+                    <mat-form-field appearance="outline">
+                        <mat-select placeholder="Select section - subject" aria-label="Section - subject"
+                            [(ngModel)]="selectedClassId" (ngModelChange)="onClassChange()" [disabled]="!selectedTerm">
+                            <mat-option *ngFor="let c of getClasses()" [value]="c.id">{{ c.section }} - {{ c.subject
+                                }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+            </section>
+
+            <!-- empty state -->
+            <section class="gu-empty" *ngIf="!selectedClassId">
+                <p *ngIf="!selectedSchoolYear">Start by choosing a school year.</p>
+                <p *ngIf="selectedSchoolYear && !selectedTerm">Now choose the term.</p>
+                <p *ngIf="selectedTerm && !selectedClassId">Choose a section - subject to see its students.</p>
+            </section>
+
+            <!-- step 3: download list, upload filled file, review, draft or submit -->
+            <section class="gu-sheet" *ngIf="selectedClassId && getSelectedClass() as cls">
+                <div class="sheet-head">
+                    <div>
+                        <h2>{{ cls.section }} - {{ cls.subject }}</h2>
+                        <p class="meta">{{ cls.level }}, {{ selectedTerm }}, S.Y. {{ selectedSchoolYear }}</p>
+                    </div>
+                    <div class="head-right">
+                        <span class="badge" [class.badge-draft]="batchStatus === 'draft'"
+                            [class.badge-ok]="batchStatus === 'submitted'">{{ getStatusLabel() }}</span>
+                        <span class="badge badge-unsaved" *ngIf="hasUnsavedChanges">Not saved</span>
+                    </div>
+                </div>
+
+                <div class="toolbar">
+                    <button type="button" class="btn btn-outline" (click)="exportList()" [disabled]="isBusy">
+                        Download list (Excel)
+                    </button>
+
+                    <ng-container *ngIf="batchStatus !== 'submitted'">
+                        <button type="button" class="btn btn-outline" (click)="fileInput.click()" [disabled]="isBusy">
+                            Upload filled file
+                        </button>
+                        <input #fileInput type="file" hidden accept=".xlsx,.xls,.csv"
+                            (change)="onFileSelected($event)" />
+                    </ng-container>
+
+                    <span class="file-name" *ngIf="fileName">{{ fileName }}</span>
+
+                    <div class="summary">
+                        <span><strong>{{ rows.length }}</strong> students</span>
+                        <span><strong>{{ countGraded() }}</strong> graded</span>
+                        <span><strong>{{ countMissing() }}</strong> no grade</span>
+                    </div>
+                </div>
+
+                <p class="hint" *ngIf="batchStatus !== 'submitted'">
+                    Download the list, enter the grades in the Grade column in Excel, then upload the file here.
+                </p>
+                <p class="hint" *ngIf="batchStatus === 'submitted'">
+                    These grades have been submitted and posted to students. They are locked.
+                </p>
+
+                <!-- problems found in the uploaded file -->
+                <ul class="upload-errors" *ngIf="uploadErrors.length > 0" role="alert">
+                    <li *ngFor="let err of uploadErrors">{{ err }}</li>
+                </ul>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="col-no">No.</th>
+                                <th>ID Number</th>
+                                <th>Name</th>
+                                <th>Gender</th>
+                                <th class="col-grade">Grade</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let row of rows; let i = index" [class.row-error]="hasError(row)">
+                                <td class="col-no">{{ i + 1 }}</td>
+                                <td class="lrn">{{ row.idNumber }}</td>
+                                <td>{{ row.name }}</td>
+                                <td>{{ row.gender }}</td>
+                                <td class="col-grade">
+                                    <span *ngIf="isFilled(row)" class="grade" [class.invalid]="hasError(row)">{{
+                                        row.grade }}</span>
+                                    <span *ngIf="!isFilled(row)" class="none">-</span>
+                                    <span class="error-text" *ngIf="hasError(row)">Enter {{ minGrade }} to {{ maxGrade
+                                        }}</span>
+                                </td>
+                                <td>
+                                    <span class="remarks" [class.fail]="getRemarks(row) === 'Failed'">{{
+                                        getRemarks(row) }}</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="sheet-foot" *ngIf="batchStatus !== 'submitted' || message">
+                    <div class="foot-text">
+                        <p class="feedback" [class.feedback-error]="messageIsError" *ngIf="message" role="status">{{
+                            message }}</p>
+                        <p class="feedback feedback-error" *ngIf="countErrors() > 0" role="alert">
+                            Fix {{ countErrors() }} grade(s) outside {{ minGrade }}-{{ maxGrade }} in the Excel file and
+                            upload it again.
+                        </p>
+                        <p class="feedback feedback-note"
+                            *ngIf="batchStatus !== 'submitted' && rows.length > 0 && countMissing() > 0 && countErrors() === 0">
+                            {{ countMissing() }} student(s) have no grade. You can save a draft, but every student needs
+                            a grade to submit.
+                        </p>
+                    </div>
+
+                    <ng-container *ngIf="batchStatus !== 'submitted'">
+                        <button type="button" class="btn btn-outline" (click)="saveDraft()"
+                            [disabled]="!canSaveDraft()">
+                            Save as draft
+                        </button>
+                        <button type="button" class="btn" (click)="submitGrades()" [disabled]="!canSubmit()">
+                            {{ isBusy ? 'Please wait...' : 'Submit grades' }}
+                        </button>
+                    </ng-container>
+                </div>
+            </section>
+        </div>
+
+    </mat-card-content>
+</mat-card>
