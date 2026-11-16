@@ -104,11 +104,14 @@
                         <p>Class adviser: {{ currentSection.adviser }}</p>
                     </div>
                     <div style="display: flex; gap: 16px; align-items: center;">
-                        <div class="room-picker"><mat-form-field appearance="outline"
-                                class="schedule-select x"><mat-label>Room</mat-label><mat-select id="schedule-room"
-                                    [(ngModel)]="roomId" (ngModelChange)="clearFeedback()"><mat-option
-                                        *ngFor="let room of rooms" [value]="room.id">{{ room.name
-                                        }}</mat-option></mat-select></mat-form-field>
+                        <div class="room-picker">
+                            <div class="room-display" aria-label="Selected room">
+                                <span class="room-label">Room</span>
+                                <span class="room-name">{{ roomName(roomId) }}</span>
+                                <button type="button" class="room-settings" aria-label="Room settings">
+                                    <mat-icon aria-hidden="true">settings</mat-icon>
+                                </button>
+                            </div>
                         </div>
                         <button type="button" mat-raised-button color="primary" matTooltip="Print schedule"
                             style="padding: 10px;" aria-label="Print schedule" (click)="showMockAction('Print')">
