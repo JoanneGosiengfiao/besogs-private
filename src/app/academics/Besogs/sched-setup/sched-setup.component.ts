@@ -47,6 +47,16 @@ export class SchedSetupComponent implements OnInit {
   // which day tab is open on each grade card, keyed by grade badge
   dayIndex = {};
 
+  selectedDayIndex(grade: any): number {
+    return grade && this.dayIndex ? this.dayIndex[grade.badge] || 0 : 0;
+  }
+
+  selectDayIndex(grade: any, index: number): void {
+    if (!grade || index < 0 || index >= this.days.length) return;
+    if (!this.dayIndex) this.dayIndex = {};
+    this.dayIndex[grade.badge] = index;
+  }
+
   // loader per grade card while switching section / strand
   loading = {};
   loadingTimers = {};
@@ -423,7 +433,7 @@ export class SchedSetupComponent implements OnInit {
   addTime(grade: any) {
     const section = this.currentSection(grade);
     if (!section) return;
-    this.openAdd(grade, section, this.days[this.dayIndex[grade.badge] || 0].id);
+    this.openAdd(grade, section, this.days[this.selectedDayIndex(grade)].id);
   }
 
   openAdd(grade: any, section: any, day: string) {

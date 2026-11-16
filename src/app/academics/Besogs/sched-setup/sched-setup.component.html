@@ -89,8 +89,8 @@
 
                             <!-- Day tabs -->
                             <mat-tab-group animationDuration="0ms" *ngIf="!loading[g.badge] && currentSection(g) as s"
-                                [selectedIndex]="dayIndex[g.badge] || 0"
-                                (selectedIndexChange)="dayIndex[g.badge] = $event">
+                                [selectedIndex]="selectedDayIndex(g)"
+                                (selectedIndexChange)="selectDayIndex(g, $event)">
                                 <mat-tab *ngFor="let d of days">
 
                                     <ng-template mat-tab-label>
