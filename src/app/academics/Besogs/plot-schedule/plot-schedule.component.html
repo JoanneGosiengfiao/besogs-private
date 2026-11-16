@@ -1,10 +1,174 @@
-<mat-card class="example-card">
+<mat-card class="plot-schedule-card">
     <mat-card-header>
         <mat-card-title>
-            <p><b>Section Maintenance</b></p>
+            <p><b>Plot Schedule</b></p>
         </mat-card-title>
         <mat-card-subtitle>
-            <p>Add, edit, delete, and view sections in the BES department for each school year.</p>
+            <p>Plot and view class schedules for each school year.</p>
         </mat-card-subtitle>
     </mat-card-header>
+    <div class="plot-body">
+        <div class="selection-toolbar">
+            <div class="year-picker">
+                <mat-form-field appearance="outline" class="schedule-select x"><mat-label>School
+                        year</mat-label>
+                    <mat-select id="school-year" [disabled]="loadingSection" [ngModel]="yearId"
+                        (ngModelChange)="changeYear($event)">
+                        <mat-option *ngFor="let year of schoolYears" [value]="year.id">{{ year.label }}</mat-option>
+                    </mat-select></mat-form-field>
+                <!-- <span class="demo-label">Mock data · Changes last until reload</span> -->
+            </div>
+            <section *ngIf="sections.length" class="section-picker" aria-label="Choose a section">
+                <div class="carousel">
+                    <button class="arrow-button" type="button" aria-label="Previous section"
+                        [disabled]="loadingSection || sectionIndex <= 0" (click)="moveSection(-1)"><mat-icon
+                            aria-hidden="true">chevron_left</mat-icon></button>
+                    <div class="section-cards" [@sectionChange]="sectionId">
+                        <div class="section-position" *ngFor="let item of visibleSections; let i = index"
+                            [class.center-position]="i === 1">
+                            <mat-select *ngIf="item && i === 1" class="section-option active section-dropdown"
+                                aria-label="Select section" [value]="sectionId" [disabled]="loadingSection"
+                                (selectionChange)="requestSection($event.value)">
+                                <mat-select-trigger>
+                                    <span>{{ item.level }}</span><strong>{{ item.name }}</strong>
+                                </mat-select-trigger>
+                                <mat-option *ngFor="let available of sections" [value]="available.id">
+                                    {{ available.level }} – {{ available.name }}
+                                </mat-option>
+                            </mat-select>
+                            <button *ngIf="item && i !== 1" type="button" class="section-option"
+                                [class.active]="item.id === sectionId" [attr.aria-pressed]="item.id === sectionId"
+                                [disabled]="loadingSection" (click)="requestSection(item.id)">
+                                <span>{{ item.level }}</span><strong>{{ item.name }}</strong>
+                            </button>
+                        </div>
+                    </div>
+                    <button class="arrow-button" type="button" aria-label="Next section"
+                        [disabled]="loadingSection || sectionIndex >= sections.length - 1"
+                        (click)="moveSection(1)"><mat-icon aria-hidden="true">chevron_right</mat-icon></button>
+                </div>
+            </section>
+
+        </div>
+
+        <div *ngIf="!sections.length" class="no-sections-state" role="status">
+            <svg viewBox="0 0 160 144" fill="none" aria-hidden="true" focusable="false">
+                <circle cx="80" cy="72" r="58" fill="#f0f2f4" />
+                <rect x="36" y="32" width="88" height="82" rx="9" fill="white" stroke="#e4e7eb" />
+                <path d="M36 55h88" stroke="#e4e7eb" />
+                <path d="M57 25v15M103 25v15" stroke="#9aabbd" stroke-width="5" stroke-linecap="round" />
+                <rect x="53" y="70" width="14" height="11" rx="3" fill="#edf2f8" />
+                <rect x="73" y="70" width="14" height="11" rx="3" fill="#edf2f8" />
+                <rect x="93" y="70" width="14" height="11" rx="3" fill="#edf2f8" />
+                <path d="M67 97h26" stroke="#c4ced9" stroke-width="4" stroke-linecap="round" />
+            </svg>
+            <h2>Nothing to show</h2>
+            <p>No sections available for this school year.<br>Choose another school year to view its schedules.</p>
+        </div>
+
+        <div *ngIf="loadingSection" class="section-loading" role="status" aria-live="polite"><mat-spinner
+                [diameter]="100" aria-label="Loading section"></mat-spinner></div>
+        <div [hidden]="loadingSection" class="schedule-layout" [@sectionChange]="sectionId"
+            *ngIf="section as currentSection">
+            <article class="panel subjects-panel" aria-labelledby="subjects-heading">
+                <header class="panel-heading">
+                    <div>
+                        <h2 id="subjects-heading">Subjects</h2>
+                        <p>Select a subject to plot</p>
+                    </div><span class="count-badge">{{ subjects.length }}</span>
+                </header>
+                <div class="subject-list">
+                    <button type="button" class="subject-card" *ngFor="let subject of subjects"
+                        [class.selected]="selectedSubject?.id === subject.id"
+                        [attr.aria-pressed]="selectedSubject?.id === subject.id" (click)="selectSubject(subject)">
+                        <span class="subject-top"><span class="code-badge">{{ subject.code }}</span><mat-icon
+                                *ngIf="selectedSubject?.id === subject.id"
+                                aria-hidden="true">check_circle</mat-icon></span>
+                        <strong>{{ subject.title }}</strong><span class="teacher">{{ subject.teacher }}</span><span
+                            class="subject-hours">{{ plottedHours(subject) }} / {{ subject.hours }} hrs plotted</span>
+                    </button>
+                    <p class="empty-state" *ngIf="!subjects.length">No subjects assigned to this section yet.</p>
+                </div>
+            </article>
+
+            <article class="panel timetable-panel" aria-labelledby="schedule-heading">
+                <header class="panel-heading schedule-heading">
+                    <div>
+                        <h2 id="schedule-heading">{{ currentSection.level }} – {{ currentSection.name }} schedule</h2>
+                        <p>Class adviser: {{ currentSection.adviser }}</p>
+                    </div>
+                    <div class="room-picker"><mat-form-field appearance="outline"
+                            class="schedule-select x"><mat-label>Room</mat-label><mat-select id="schedule-room"
+                                [(ngModel)]="roomId" (ngModelChange)="clearFeedback()"><mat-option
+                                    *ngFor="let room of rooms" [value]="room.id">{{ room.name
+                                    }}</mat-option></mat-select></mat-form-field>
+                    </div>
+                </header>
+                <!-- <div class="plot-hint"><mat-icon aria-hidden="true">{{ selectedSubject ? 'touch_app' : 'info_outline'
+                        }}</mat-icon><span>{{ selectedSubject ? 'Click an empty slot to plot ' + selectedSubject.title +
+                        '.' : 'Choose a subject on the left, then click an empty time slot.' }}</span><small>{{
+                        sectionAssignments.length }} plotted</small></div> -->
+
+                <div class="table-scroll" tabindex="0" role="region"
+                    aria-label="Weekly schedule, scroll horizontally on smaller screens">
+                    <table class="schedule-table">
+                        <caption class="visually-hidden">{{ currentSection.level }} {{ currentSection.name }} weekly
+                            schedule. Days across, time slots down.</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col" class="time-column">Time</th>
+                                <th scope="col" *ngFor="let day of days">{{ day }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let slot of timeSlots" [class.afternoon-start]="slot.id === '1300'">
+                                <th scope="row">{{ slot.label }}</th>
+                                <td *ngFor="let day of days">
+                                    <div *ngIf="assignmentAt(day, slot.id) as assignment; else availableSlot"
+                                        class="assignment" [class.science]="subjectFor(assignment)?.code === 'SCI'"
+                                        [class.math]="subjectFor(assignment)?.code === 'MATH'">
+                                        <span class="assignment-code">{{ subjectFor(assignment)?.code }}</span>
+                                        <strong>{{ subjectFor(assignment)?.title }}</strong><span>{{
+                                            subjectFor(assignment)?.teacher }}</span><small>{{
+                                            roomName(assignment.roomId) }}</small>
+                                        <button type="button" class="remove-assignment" (click)="remove(assignment)"
+                                            [attr.aria-label]="'Remove ' + subjectFor(assignment)?.title + ' on ' + day + ' at ' + slot.label"><mat-icon
+                                                aria-hidden="true">close</mat-icon></button>
+                                    </div>
+                                    <ng-template #availableSlot><button type="button" class="empty-slot"
+                                            [class.ready]="selectedSubject" (click)="assign(day, slot.id)"
+                                            [attr.aria-label]="'Assign ' + (selectedSubject ? selectedSubject.title : 'a subject') + ' on ' + day + ' at ' + slot.label"><span
+                                                aria-hidden="true">+</span><small>{{ selectedSubject ? 'Plot here' :
+                                                'Available' }}</small></button></ng-template>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="schedule-bottom-row">
+                    <div class="conflict-summary" aria-label="Mock conflict checks" aria-live="polite">
+                        <article class="conflict-summary-card" *ngFor="let check of ['section', 'teacher', 'room']"
+                            [class.blocked]="conflict === check">
+                            <h3>{{ check | titlecase }} conflict</h3>
+                            <mat-icon class="conflict-status-icon" role="img" aria-hidden="false"
+                                [attr.aria-label]="check + (conflict === check ? ' conflict: blocked' : ' check: okay')">{{
+                                conflict === check ? 'close' : 'check' }}</mat-icon>
+                            <!-- <p>{{ conflict === check ? 'Last plotting attempt has a conflict' : 'Checks each plotting attempt' }}</p> -->
+                        </article>
+                    </div>
+                    <div class="schedule-actions" aria-label="Schedule actions">
+                        <button type="button" mat-raised-button color="primary" matTooltip="Print schedule"
+                            aria-label="Print schedule" (click)="showMockAction('Print')">
+                            <mat-icon aria-hidden="true">print</mat-icon>
+                        </button>
+                        <button type="button" mat-raised-button color="primary" matTooltip="Save schedule"
+                            aria-label="Save schedule" (click)="showMockAction('Save')">
+                            <mat-icon aria-hidden="true">save</mat-icon>
+                        </button>
+                    </div>
+                </div>
+
+            </article>
+        </div>
+    </div>
 </mat-card>
