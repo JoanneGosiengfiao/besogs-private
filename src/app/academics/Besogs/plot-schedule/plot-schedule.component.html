@@ -103,7 +103,7 @@
                         <h2 id="schedule-heading">{{ currentSection.level }} – {{ currentSection.name }} schedule</h2>
                         <p>Class adviser: {{ currentSection.adviser }}</p>
                     </div>
-                    <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="display: flex; gap: 16px; align-items: center;">
                         <div class="room-picker"><mat-form-field appearance="outline"
                                 class="schedule-select x"><mat-label>Room</mat-label><mat-select id="schedule-room"
                                     [(ngModel)]="roomId" (ngModelChange)="clearFeedback()"><mat-option

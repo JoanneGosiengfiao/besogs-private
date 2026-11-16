@@ -165,7 +165,17 @@ export class PlotScheduleComponent implements OnDestroy {
     this.message = this.selectedSubject.title + ' assigned on ' + day + '.';
     this.clearHiddenSubject();
   }
-  remove(assignment: ScheduleAssignment): void {
+  async remove(assignment: ScheduleAssignment): Promise<void> {
+    const result = await Swal.fire({
+      title: 'Remove this subject?',
+      text: 'This will make the time slot available again.',
+      type: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Remove',
+      cancelButtonText: 'Keep',
+      confirmButtonColor: '#294a70'
+    });
+    if (!result.value) { return; }
     this.assignments = this.assignments.filter(item => item !== assignment);
     this.clearFeedback();
     this.message = 'Assignment removed. This slot is available again.';
