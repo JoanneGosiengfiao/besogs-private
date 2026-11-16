@@ -103,11 +103,17 @@
                         <h2 id="schedule-heading">{{ currentSection.level }} – {{ currentSection.name }} schedule</h2>
                         <p>Class adviser: {{ currentSection.adviser }}</p>
                     </div>
-                    <div class="room-picker"><mat-form-field appearance="outline"
-                            class="schedule-select x"><mat-label>Room</mat-label><mat-select id="schedule-room"
-                                [(ngModel)]="roomId" (ngModelChange)="clearFeedback()"><mat-option
-                                    *ngFor="let room of rooms" [value]="room.id">{{ room.name
-                                    }}</mat-option></mat-select></mat-form-field>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <div class="room-picker"><mat-form-field appearance="outline"
+                                class="schedule-select x"><mat-label>Room</mat-label><mat-select id="schedule-room"
+                                    [(ngModel)]="roomId" (ngModelChange)="clearFeedback()"><mat-option
+                                        *ngFor="let room of rooms" [value]="room.id">{{ room.name
+                                        }}</mat-option></mat-select></mat-form-field>
+                        </div>
+                        <button type="button" mat-raised-button color="primary" matTooltip="Print schedule"
+                            style="padding: 10px;" aria-label="Print schedule" (click)="showMockAction('Print')">
+                            <mat-icon aria-hidden="true">print</mat-icon>
+                        </button>
                     </div>
                 </header>
                 <!-- <div class="plot-hint"><mat-icon aria-hidden="true">{{ selectedSubject ? 'touch_app' : 'info_outline'
@@ -129,7 +135,8 @@
                         <tbody>
                             <tr *ngFor="let slot of timeSlots" [class.afternoon-start]="slot.id === '1300'">
                                 <th scope="row">{{ slot.label }}</th>
-                                <td *ngFor="let day of days">
+                                <td *ngFor="let day of days"
+                                    [class.selected-subject-cell]="selectedSubject && assignmentAt(day, slot.id)?.subjectId === selectedSubject.id">
                                     <div *ngIf="assignmentAt(day, slot.id) as assignment; else availableSlot"
                                         class="assignment" [class.science]="subjectFor(assignment)?.code === 'SCI'"
                                         [class.math]="subjectFor(assignment)?.code === 'MATH'">
@@ -142,37 +149,18 @@
                                                 aria-hidden="true">close</mat-icon></button>
                                     </div>
                                     <ng-template #availableSlot><button type="button" class="empty-slot"
-                                            [class.ready]="selectedSubject" (click)="assign(day, slot.id)"
-                                            [attr.aria-label]="'Assign ' + (selectedSubject ? selectedSubject.title : 'a subject') + ' on ' + day + ' at ' + slot.label"><span
-                                                aria-hidden="true">+</span><small>{{ selectedSubject ? 'Plot here' :
-                                                'Available' }}</small></button></ng-template>
+                                            [class.ready]="selectedSubject && !slotUnavailableReason(day, slot.id)"
+                                            [class.unavailable]="selectedSubject && slotUnavailableReason(day, slot.id)"
+                                            [disabled]="!selectedSubject || !!slotUnavailableReason(day, slot.id)"
+                                            (click)="assign(day, slot.id)"
+                                            [attr.aria-label]="'Assign ' + (selectedSubject ? selectedSubject.title : 'a subject') + ' on ' + day + ' at ' + slot.label"><small
+                                                *ngIf="selectedSubject">{{ slotUnavailableReason(day, slot.id) ?
+                                                'Unavailable' : 'Available' }}</small></button></ng-template>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <div class="schedule-bottom-row">
-                    <div class="conflict-summary" aria-label="Mock conflict checks" aria-live="polite">
-                        <article class="conflict-summary-card" *ngFor="let check of ['section', 'teacher', 'room']"
-                            [class.blocked]="conflict === check">
-                            <h3>{{ check | titlecase }} conflict</h3>
-                            <mat-icon class="conflict-status-icon" role="img" aria-hidden="false"
-                                [attr.aria-label]="check + (conflict === check ? ' conflict: blocked' : ' check: okay')">{{
-                                conflict === check ? 'close' : 'check' }}</mat-icon>
-                        </article>
-                    </div>
-                    <div class="schedule-actions" aria-label="Schedule actions">
-                        <button type="button" mat-raised-button color="primary" matTooltip="Print schedule"
-                            aria-label="Print schedule" (click)="showMockAction('Print')">
-                            <mat-icon aria-hidden="true">print</mat-icon>
-                        </button>
-                        <button type="button" mat-raised-button color="primary" matTooltip="Save schedule"
-                            aria-label="Save schedule" (click)="showMockAction('Save')">
-                            <mat-icon aria-hidden="true">save</mat-icon>
-                        </button>
-                    </div>
-                </div>
-
             </article>
         </div>
     </div>

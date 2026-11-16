@@ -88,7 +88,11 @@ export class PlotScheduleComponent implements OnDestroy {
     const next = this.sections[this.sectionIndex + offset];
     if (next) { this.requestSection(next.id); }
   }
-  selectSubject(subject: ScheduleSubject): void { this.selectedSubject = subject; this.clearFeedback(); }
+  selectSubject(subject: ScheduleSubject): void {
+    this.selectedSubject = this.selectedSubject && this.selectedSubject.id === subject.id ? null : subject;
+    this.clearFeedback();
+    if (this.selectedSubject) { this.checkConflicts(); }
+  }
   plottedHours(subject: ScheduleSubject): number {
     return this.sectionAssignments.filter(item => item.subjectId === subject.id).length * 1.5;
   }
@@ -96,11 +100,45 @@ export class PlotScheduleComponent implements OnDestroy {
   assignmentAt(day: string, slotId: string): ScheduleAssignment {
     return this.sectionAssignments.find(item => item.day === day && item.slotId === slotId);
   }
+  slotUnavailableReason(day: string, slotId: string): string {
+    if (!this.selectedSubject || !this.section) { return ''; }
+    if (this.assignmentAt(day, slotId)) { return 'This section already has a subject in this slot.'; }
+    if (this.plottedHours(this.selectedSubject) + 1.5 > this.selectedSubject.hours) {
+      return 'Weekly hours exceeded. Each slot uses 1.5 hours; ' +
+        (this.selectedSubject.hours - this.plottedHours(this.selectedSubject)) + ' hours remain for this subject.';
+    }
+    if (!this.rooms.some(item => item.id === this.roomId)) { return 'Choose a room first.'; }
+    const simultaneous = this.assignments.filter(item => item.yearId === this.yearId && item.day === day && item.slotId === slotId);
+    const teacherConflict = simultaneous.find(item => item.teacherId === this.selectedSubject.teacherId);
+    if (teacherConflict) {
+      const other = SECTIONS.find(item => item.id === teacherConflict.sectionId);
+      return this.selectedSubject.teacher + ' is already assigned to ' + other.level + ' – ' + other.name + ' at this time.';
+    }
+    const roomConflict = simultaneous.find(item => item.roomId === this.roomId);
+    if (roomConflict) {
+      const other = SECTIONS.find(item => item.id === roomConflict.sectionId);
+      return this.roomName(this.roomId) + ' is already assigned to ' + other.level + ' – ' + other.name + ' at this time.';
+    }
+    return '';
+  }
+  private checkConflicts(): void {
+    for (const day of this.days) {
+      for (const slot of this.timeSlots) {
+        const reason = this.slotUnavailableReason(day, slot.id);
+        if (!reason) { continue; }
+        this.message = reason;
+        this.conflict = this.assignmentAt(day, slot.id) ? 'section' :
+          reason.indexOf(this.selectedSubject.teacher + ' is already assigned') === 0 ? 'teacher' :
+          reason.indexOf(this.roomName(this.roomId) + ' is already assigned') === 0 ? 'room' : null;
+        return;
+      }
+    }
+  }
   subjectFor(assignment: ScheduleAssignment): ScheduleSubject { return SUBJECTS.find(item => item.id === assignment.subjectId); }
   roomName(id: string): string { const room = this.rooms.find(item => item.id === id); return room ? room.name : id; }
-  showMockAction(action: 'Save' | 'Print'): void {
-    Swal.fire({ title: action + ' schedule', type: 'info',
-      text: 'This is a mock schedule. ' + action + ' is not connected yet.',
+  showMockAction(): void {
+    Swal.fire({ title: 'Print schedule', type: 'info',
+      text: 'This is a mock schedule. Print is not connected yet.',
       confirmButtonColor: '#294a70' });
   }
   private showPlotWarning(): void {
@@ -110,24 +148,15 @@ export class PlotScheduleComponent implements OnDestroy {
   assign(day: string, slotId: string): void {
     this.clearFeedback();
     if (!this.section) { return; }
-    if (this.assignmentAt(day, slotId)) {
-      this.conflict = 'section'; this.message = 'This section already has a subject in this slot. Remove it first.'; this.showPlotWarning(); return;
-    }
     if (!this.selectedSubject || !this.subjects.some(item => item.id === this.selectedSubject.id)) {
       this.message = 'Select a subject on the left before choosing a time slot.'; this.showPlotWarning(); return;
     }
-    if (this.plottedHours(this.selectedSubject) + 1.5 > this.selectedSubject.hours) {
-      this.message = 'Weekly hours exceeded. Each slot uses 1.5 hours; ' + (this.selectedSubject.hours - this.plottedHours(this.selectedSubject)) + ' hours remain for this subject.'; this.showPlotWarning(); return;
-    }
-    if (!this.rooms.some(item => item.id === this.roomId)) { this.message = 'Choose a room first.'; this.showPlotWarning(); return; }
-    const simultaneous = this.assignments.filter(item => item.yearId === this.yearId && item.day === day && item.slotId === slotId);
-    const teacherConflict = simultaneous.find(item => item.teacherId === this.selectedSubject.teacherId);
-    const roomConflict = simultaneous.find(item => item.roomId === this.roomId);
-    if (teacherConflict || roomConflict) {
-      this.conflict = teacherConflict ? 'teacher' : 'room';
-      const other = SECTIONS.find(item => item.id === (teacherConflict || roomConflict).sectionId);
-      this.message = (teacherConflict ? this.selectedSubject.teacher : this.roomName(this.roomId)) +
-        ' is already assigned to ' + other.level + ' – ' + other.name + ' at this time.';
+    const reason = this.slotUnavailableReason(day, slotId);
+    if (reason) {
+      this.message = reason;
+      this.conflict = this.assignmentAt(day, slotId) ? 'section' :
+        reason.indexOf(this.selectedSubject.teacher + ' is already assigned') === 0 ? 'teacher' :
+        reason.indexOf(this.roomName(this.roomId) + ' is already assigned') === 0 ? 'room' : null;
       this.showPlotWarning();
       return;
     }
