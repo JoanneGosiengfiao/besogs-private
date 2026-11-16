@@ -1,5 +1,6 @@
 import { Component, OnDestroy, TemplateRef } from '@angular/core';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
+import Swal from 'sweetalert2';
 
 interface Employee {
   id: string;
@@ -60,9 +61,20 @@ export class AssignLoadsComponent implements OnDestroy {
     this.closeAddPanel();
   }
 
-  deleteLoad(load: TeachingLoad): void {
+  async deleteLoad(load: TeachingLoad): Promise<void> {
     if (!this.selectedEmployee) { return; }
-    this.loadsByEmployee[this.selectedEmployee.id] = this.employeeLoads.filter(item => item !== load);
+    const employee = this.selectedEmployee;
+    const result = await Swal.fire({
+      title: 'Delete this teaching load?',
+      text: 'Remove ' + load.subjectTitle + ' (' + load.section + ') from ' + employee.name + '?',
+      type: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Delete',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#294a70'
+    });
+    if (!result.value) { return; }
+    this.loadsByEmployee[employee.id] = (this.loadsByEmployee[employee.id] || []).filter(item => item !== load);
   }
 
   ngOnDestroy(): void { this.closeAddPanel(); }
